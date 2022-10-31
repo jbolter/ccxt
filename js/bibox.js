@@ -2,7 +2,7 @@
 
 //  ---------------------------------------------------------------------------
 const Exchange = require ('./base/Exchange');
-const { ExchangeError, AccountSuspended, ArgumentsRequired, AuthenticationError, DDoSProtection, ExchangeNotAvailable, InvalidOrder, OrderNotFound, PermissionDenied, InsufficientFunds, BadSymbol, RateLimitExceeded, BadRequest } = require ('./base/errors');
+const { ExchangeError, AccountSuspended, ArgumentsRequired, AuthenticationError, DDoSProtection, ExchangeNotAvailable, InvalidOrder, OrderNotFound, PermissionDenied, InsufficientFunds, BadSymbol, RateLimitExceeded, BadRequest, NotSupported } = require ('./base/errors');
 const { TICK_SIZE } = require ('./base/functions/number');
 const Precise = require ('./base/Precise');
 
@@ -255,6 +255,7 @@ module.exports = class bibox extends Exchange {
                             'marketdata/candles',
                             'marketdata/trades',
                             'marketdata/ticker',
+                            'cbu/marketdata/ticker',
                         ],
                     },
                     'private': {
@@ -435,8 +436,6 @@ module.exports = class bibox extends Exchange {
     parseTicker (ticker, market = undefined) {
         // we don't set values that are not defined by the exchange
         //
-        // fetchTicker
-        //
         //    {
         //        "s": "ADA_USDT",             // trading pair code
         //        "t": 1666143212000,          // 24 hour transaction count
@@ -456,50 +455,16 @@ module.exports = class bibox extends Exchange {
         //        "aq": 7726.59                // Best current ask quantity
         //    }
         //
-        // fetchTickers
-        //
-        //    {
-        //        is_hide: '0',
-        //        high_cny: '0.1094',
-        //        amount: '5.34',
-        //        coin_symbol: 'BIX',
-        //        last: '0.00000080',
-        //        currency_symbol: 'BTC',
-        //        change: '+0.00000001',
-        //        low_cny: '0.1080',
-        //        base_last_cny: '0.10935854',
-        //        area_id: '7',
-        //        percent: '+1.27%',
-        //        last_cny: '0.1094',
-        //        high: '0.00000080',
-        //        low: '0.00000079',
-        //        pair_type: '0',
-        //        last_usd: '0.0155',
-        //        vol24H: '6697325',
-        //        id: '1',
-        //        high_usd: '0.0155',
-        //        low_usd: '0.0153'
-        //    }
-        //
-        const timestamp = this.safeInteger2 (ticker, 'timestamp', 't');
-        const baseId = this.safeString (ticker, 'coin_symbol');
-        const quoteId = this.safeString (ticker, 'currency_symbol');
-        let marketId = this.safeString (ticker, 's');
-        if ((marketId === undefined) && (baseId !== undefined) && (quoteId !== undefined)) {
-            marketId = baseId + '_' + quoteId;
-        }
+        const timestamp = this.safeInteger (ticker, 't');
+        const marketId = this.safeString (ticker, 's');
         market = this.safeMarket (marketId, market);
-        const last = this.safeString2 (ticker, 'last', 'p');
-        let percentage = this.safeString (ticker, 'percent');
-        if (percentage !== undefined) {
-            percentage = percentage.replace ('%', '');
-        }
+        const last = this.safeString (ticker, 'p');
         return this.safeTicker ({
             'symbol': market['symbol'],
             'timestamp': timestamp,
             'datetime': this.iso8601 (timestamp),
-            'high': this.safeString2 (ticker, 'high', 'h'),
-            'low': this.safeString2 (ticker, 'low', 'l'),
+            'high': this.safeString (ticker, 'h'),
+            'low': this.safeString (ticker, 'l'),
             'bid': this.safeString (ticker, 'bp'),
             'bidVolume': this.safeString (ticker, 'bq'),
             'ask': this.safeString (ticker, 'ap'),
@@ -509,11 +474,11 @@ module.exports = class bibox extends Exchange {
             'close': last,
             'last': last,
             'previousClose': undefined,
-            'change': this.safeString (ticker, 'change'),
-            'percentage': percentage,
+            'change': this.safeString (ticker, 'c'),
+            'percentage': undefined,
             'average': undefined,
-            'baseVolume': this.safeString2 (ticker, 'a', 'vol24H'),
-            'quoteVolume': this.safeString2 (ticker, 'v', 'amount'),
+            'baseVolume': this.safeString (ticker, 'a'),
+            'quoteVolume': this.safeString (ticker, 'v'),
             'info': ticker,
         }, market);
     }
@@ -564,17 +529,30 @@ module.exports = class bibox extends Exchange {
         /**
          * @method
          * @name bibox#fetchTickers
-         * @description v1, fetches price tickers for multiple markets, statistical calculations with the information calculated over the past 24 hours each market
+         * @description fetches price tickers for multiple markets, statistical calculations with the information calculated over the past 24 hours each market
+         * @see https://biboxcom.github.io/api/spot/v4/en/#get-tickers
          * @param {[string]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
          * @param {object} params extra parameters specific to the bibox api endpoint
          * @returns {object} an array of [ticker structures]{@link https://docs.ccxt.com/en/latest/manual.html#ticker-structure}
          */
         await this.loadMarkets ();
         symbols = this.marketSymbols (symbols);
-        const request = {
-            'cmd': 'marketAll',
-        };
-        const response = await this.v1PublicGetMdata (this.extend (request, params));
+        const request = {};
+        let market = undefined;
+        if (symbols !== undefined) {
+            const symbol = this.safeValue (symbols, 0);
+            market = this.market (symbol);
+            const marketIds = this.marketIds (symbols);
+            request['symbol'] = marketIds.join (',');
+        }
+        let type = undefined;
+        [ type, params ] = this.handleMarketTypeAndParams ('fetchTickers', market, params);
+        let response = undefined;
+        if (type === 'spot') {
+            response = await this.v4PublicGetMarketdataTicker (this.extend (request, params));
+        } else {
+            throw new NotSupported ('Currently we only support the spot `fetchTickers`');
+        }
         //
         //    {
         //        result: [
@@ -606,7 +584,7 @@ module.exports = class bibox extends Exchange {
         //        ver: '1.1'
         //    }
         //
-        const tickers = this.parseTickers (response['result'], symbols);
+        const tickers = this.parseTickers (response, symbols);
         const result = this.indexBy (tickers, 'symbol');
         return this.filterByArray (result, 'symbol', symbols);
     }

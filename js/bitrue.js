@@ -59,7 +59,7 @@ module.exports = class bitrue extends Exchange {
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': false,
-                'fetchTransactionFees': false,
+                'fetchTransactionFees': true,
                 'fetchTransactions': false,
                 'fetchTransfers': false,
                 'fetchWithdrawals': true,
@@ -1674,6 +1674,42 @@ module.exports = class bitrue extends Exchange {
         //
         const data = this.safeValue (response, 'data', {});
         return this.parseTransactions (data, currency);
+    }
+
+    async fetchTransactionFees (codes = undefined, params = {}) {
+        /**
+         * @method
+         * @name bitrue#fetchTransactionFees
+         * @description fetch transaction fees
+         * @see https://github.com/Bitrue-exchange/Spot-official-api-docs#general-endpoints
+         * @param {[string]|undefined} codes list of unified currency codes
+         * @param {object} params extra parameters specific to the bitrue api endpoint
+         * @returns {object} a list of [fee structures]{@link https://docs.ccxt.com/en/latest/manual.html#fee-structure}
+         */
+        await this.loadMarkets ();
+        const currencyKeys = Object.keys (this.currencies);
+        const result = {};
+        for (let i = 0; i < currencyKeys.length; i++) {
+            const code = currencyKeys[i];
+            if (codes !== undefined && !this.inArray (code, codes)) {
+                continue;
+            }
+            const currency = this.currencies[code];
+            const info = this.safeValue (currency, 'info');
+            const chainDetails = this.safeValue (info, 'chainDetail');
+            result[code] = {
+                'deposit': undefined,
+                'withdraw': {},
+                'info': info,
+            };
+            for (let j = 0; j < chainDetails.length; j++) {
+                const chainDetail = chainDetails[j];
+                const networkId = this.safeString (chainDetail, 'chain');
+                const network = this.safeNetwork (networkId);
+                result[code]['withdraw'][network] = this.safeNumber (chainDetail, 'withdrawFee');
+            }
+        }
+        return result;
     }
 
     parseTransactionStatusByType (status, type = undefined) {

@@ -59,6 +59,7 @@ module.exports = class bitrue extends Exchange {
                 'fetchTrades': true,
                 'fetchTradingFee': false,
                 'fetchTradingFees': false,
+                'fetchTransactionFee': 'emulated',
                 'fetchTransactionFees': true,
                 'fetchTransactions': false,
                 'fetchTransfers': false,
@@ -1681,33 +1682,62 @@ module.exports = class bitrue extends Exchange {
          * @method
          * @name bitrue#fetchTransactionFees
          * @description fetch transaction fees
-         * @see https://github.com/Bitrue-exchange/Spot-official-api-docs#general-endpoints
+         * @see https://github.com/Bitrue-exchange/Spot-official-api-docs#exchangeInfo_endpoint
          * @param {[string]|undefined} codes list of unified currency codes
          * @param {object} params extra parameters specific to the bitrue api endpoint
          * @returns {object} a list of [fee structures]{@link https://docs.ccxt.com/en/latest/manual.html#fee-structure}
          */
         await this.loadMarkets ();
-        const currencyKeys = Object.keys (this.currencies);
+        const response = await this.v1PublicGetExchangeInfo (params);
+        const coins = this.safeValue (response, 'coins');
+        return this.parseTransactionFees (coins, codes);
+    }
+
+    parseTransactionFees (response, codes = undefined) {
         const result = {};
-        for (let i = 0; i < currencyKeys.length; i++) {
-            const code = currencyKeys[i];
-            if (codes !== undefined && !this.inArray (code, codes)) {
-                continue;
+        for (let i = 0; i < response.length; i++) {
+            const entry = response[i];
+            const currencyId = this.safeString (entry, 'coin');
+            const currency = this.safeCurrency (currencyId);
+            const code = this.safeString (currency, 'code');
+            if ((codes === undefined) || (this.inArray (code, codes))) {
+                result[code] = this.parseTransactionFee (entry);
             }
-            const currency = this.currencies[code];
-            const info = this.safeValue (currency, 'info');
-            const chainDetails = this.safeValue (info, 'chainDetail');
-            result[code] = {
-                'deposit': undefined,
-                'withdraw': {},
-                'info': info,
-            };
-            for (let j = 0; j < chainDetails.length; j++) {
-                const chainDetail = chainDetails[j];
-                const networkId = this.safeString (chainDetail, 'chain');
-                const network = this.safeNetwork (networkId);
-                result[code]['withdraw'][network] = this.safeNumber (chainDetail, 'withdrawFee');
-            }
+        }
+        return result;
+    }
+
+    parseTransactionFee (transaction) {
+        //
+        // {
+        //     "coin": "egc",
+        //     "coinFulName": "EverGrow",
+        //     "chains": [
+        //         "BSC"
+        //     ],
+        //     "chainDetail": [
+        //         {
+        //             "chain": "BSC",
+        //             "enableWithdraw": true,
+        //             "enableDeposit": false,
+        //             "withdrawFee": "2500000.0000000000",
+        //             "minWithdraw": "5000000.0000000000",
+        //             "maxWithdraw": "10000000000000000.0000000000"
+        //         }
+        //     ]
+        // }
+        //
+        const result = {
+            'withdraw': {},
+            'deposit': {},
+            'info': transaction,
+        };
+        const chainDetails = this.safeValue (transaction, 'chainDetail');
+        for (let j = 0; j < chainDetails.length; j++) {
+            const chainDetail = chainDetails[j];
+            const networkId = this.safeString (chainDetail, 'chain');
+            const network = this.safeNetwork (networkId);
+            result['withdraw'][network] = this.safeNumber (chainDetail, 'withdrawFee');
         }
         return result;
     }

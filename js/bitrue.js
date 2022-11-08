@@ -1707,7 +1707,7 @@ module.exports = class bitrue extends Exchange {
         return result;
     }
 
-    parseTransactionFee (transaction) {
+    parseTransactionFee (transaction, currency = undefined) {
         //
         // {
         //     "coin": "egc",

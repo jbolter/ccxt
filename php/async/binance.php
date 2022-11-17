@@ -231,8 +231,13 @@ class binance extends Exchange {
                         'loan/income' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
                         'loan/ongoing/orders' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
                         'loan/ltv/adjustment/history' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
-                        'loan/borrow/history' => 2.6667, // Weight(UID) => 400 => cost = 0.006667 * 400 ~= 2.6667
+                        'loan/borrow/history' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
                         'loan/repay/history' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
+                        'loan/loanable/data' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
+                        'loan/collateral/data' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
+                        'loan/repay/collateral/rate' => 600, // Weight(IP) => 6000 => cost = 0.1 * 6000 = 600
+                        'loan/vip/ongoing/orders' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
+                        'loan/vip/repay/history' => 40, // Weight(IP) => 400 => cost = 0.1 * 400 = 40
                         'fiat/orders' => 600.03, // Weight(UID) => 90000 => cost = 0.006667 * 90000 = 600.03
                         'fiat/payments' => 0.1,
                         'futures/transfer' => 1,
@@ -368,7 +373,7 @@ class binance extends Exchange {
                         'account/enableFastWithdrawSwitch' => 0.1,
                         // 'account/apiRestrictions/ipRestriction' => 1, discontinued
                         // 'account/apiRestrictions/ipRestriction/ipList' => 1, discontinued
-                        'capital/withdraw/apply' => 0.1,
+                        'capital/withdraw/apply' => 4.0002, // Weight(UID) => 600 => cost = 0.006667 * 600 = 4.0002
                         'margin/transfer' => 1, // Weight(IP) => 600 => cost = 0.1 * 600 = 60
                         'margin/loan' => 20.001, // Weight(UID) => 3000 => cost = 0.006667 * 3000 = 20.001
                         'margin/repay' => 20.001,
@@ -442,6 +447,8 @@ class binance extends Exchange {
                         'loan/borrow' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
                         'loan/repay' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
                         'loan/adjust/ltv' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
+                        'loan/customize/margin_call' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
+                        'loan/vip/repay' => 40, // Weight(UID) => 6000 => cost = 0.006667 * 6000 = 40
                     ),
                     'put' => array(
                         'userDataStream' => 0.1,
@@ -689,6 +696,7 @@ class binance extends Exchange {
                         'bill' => 1,
                         'marginAccount' => 3,
                         'mmp' => 1,
+                        'countdownCancelAll' => 1,
                     ),
                     'post' => array(
                         'transfer' => 1,
@@ -697,6 +705,8 @@ class binance extends Exchange {
                         'listenKey' => 1,
                         'mmpSet' => 1,
                         'mmpReset' => 1,
+                        'countdownCancelAll' => 1,
+                        'countdownCancelAllHeartBeat' => 10,
                     ),
                     'put' => array(
                         'listenKey' => 1,
@@ -2939,13 +2949,11 @@ class binance extends Exchange {
             $marketType = $this->safe_string($params, 'type', $defaultType);
             $clientOrderId = $this->safe_string_2($params, 'newClientOrderId', 'clientOrderId');
             $postOnly = $this->safe_value($params, 'postOnly', false);
-            $reduceOnly = $this->safe_value($params, 'reduceOnly');
             list($marginMode, $query) = $this->handle_margin_mode_and_params('createOrder', $params);
-            if ($reduceOnly !== null) {
-                if (($marketType !== 'future') && ($marketType !== 'delivery')) {
-                    throw new InvalidOrder($this->id . ' createOrder() does not support $reduceOnly for ' . $marketType . ' orders, $reduceOnly orders are supported for future and delivery markets only');
-                }
-            }
+            $request = array(
+                'symbol' => $market['id'],
+                'side' => strtoupper($side),
+            );
             $method = 'privatePostOrder';
             if ($marketType === 'future') {
                 $method = 'fapiPrivatePostOrder';
@@ -2953,6 +2961,11 @@ class binance extends Exchange {
                 $method = 'dapiPrivatePostOrder';
             } elseif ($marketType === 'margin' || $marginMode !== null) {
                 $method = 'sapiPostMarginOrder';
+                $reduceOnly = $this->safe_value($params, 'reduceOnly');
+                if ($reduceOnly) {
+                    $request['sideEffectType'] = 'AUTO_REPAY';
+                    $params = $this->omit($params, 'reduceOnly');
+                }
             }
             if ($market['spot'] || $marketType === 'margin') {
                 // support for testing orders
@@ -2967,6 +2980,7 @@ class binance extends Exchange {
             }
             $initialUppercaseType = strtoupper($type);
             $uppercaseType = $initialUppercaseType;
+            $request['type'] = $uppercaseType;
             $stopPrice = $this->safe_number($query, 'stopPrice');
             if ($stopPrice !== null) {
                 if ($uppercaseType === 'MARKET') {
@@ -2983,11 +2997,6 @@ class binance extends Exchange {
                     throw new InvalidOrder($this->id . ' ' . $type . ' is not a valid order $type for the ' . $symbol . ' market');
                 }
             }
-            $request = array(
-                'symbol' => $market['id'],
-                'type' => $uppercaseType,
-                'side' => strtoupper($side),
-            );
             if ($marginMode === 'isolated') {
                 $request['isIsolated'] = true;
             }
@@ -6375,25 +6384,18 @@ class binance extends Exchange {
              * @param {array} $params extra parameters specific to the binance api endpoint
              * @return {array} a {@link https://docs.ccxt.com/en/latest/manual.html#margin-loan-structure margin loan structure}
              */
+            $marginMode = $this->safe_string($params, 'marginMode'); // cross or isolated
+            $this->check_required_margin_argument('repayMargin', $symbol, $marginMode);
             Async\await($this->load_markets());
-            $market = null;
-            if ($symbol !== null) {
-                $market = $this->market($symbol);
-                $symbol = $market['symbol'];
-            }
             $currency = $this->currency($code);
             $request = array(
                 'asset' => $currency['id'],
                 'amount' => $this->currency_to_precision($code, $amount),
             );
-            $defaultMarginMode = $this->safe_string_2($this->options, 'defaultMarginMode', 'marginMode', 'cross');
-            $marginMode = $this->safe_string($params, 'marginMode', $defaultMarginMode); // cross or isolated
-            if ($marginMode === 'isolated') {
-                if ($symbol === null) {
-                    throw new ArgumentsRequired($this->id . ' repayMargin() requires a $symbol argument for isolated margin');
-                }
-                $request['isIsolated'] = 'TRUE';
+            if ($symbol !== null) {
+                $market = $this->market($symbol);
                 $request['symbol'] = $market['id'];
+                $request['isIsolated'] = 'TRUE';
             }
             $params = $this->omit($params, 'marginMode');
             $response = Async\await($this->sapiPostMarginRepay (array_merge($request, $params)));
@@ -6403,11 +6405,7 @@ class binance extends Exchange {
             //         "clientTag":""
             //     }
             //
-            $transaction = $this->parse_margin_loan($response, $currency);
-            return array_merge($transaction, array(
-                'amount' => $amount,
-                'symbol' => $symbol,
-            ));
+            return $this->parse_margin_loan($response, $currency);
         }) ();
     }
 
@@ -6422,27 +6420,20 @@ class binance extends Exchange {
              * @param {array} $params extra parameters specific to the binance api endpoint
              * @return {array} a {@link https://docs.ccxt.com/en/latest/manual.html#margin-loan-structure margin loan structure}
              */
+            $marginMode = $this->safe_string($params, 'marginMode'); // cross or isolated
+            $params = $this->omit($params, 'marginMode');
+            $this->check_required_margin_argument('borrowMargin', $symbol, $marginMode);
             Async\await($this->load_markets());
-            $market = null;
-            if ($symbol !== null) {
-                $market = $this->market($symbol);
-                $symbol = $market['symbol'];
-            }
             $currency = $this->currency($code);
             $request = array(
                 'asset' => $currency['id'],
                 'amount' => $this->currency_to_precision($code, $amount),
             );
-            $defaultMarginMode = $this->safe_string_2($this->options, 'defaultMarginMode', 'marginMode', 'cross');
-            $marginMode = $this->safe_string($params, 'marginMode', $defaultMarginMode); // cross or isolated
-            if ($marginMode === 'isolated') {
-                if ($symbol === null) {
-                    throw new ArgumentsRequired($this->id . ' borrowMargin() requires a $symbol argument for isolated margin');
-                }
-                $request['isIsolated'] = 'TRUE';
+            if ($symbol !== null) {
+                $market = $this->market($symbol);
                 $request['symbol'] = $market['id'];
+                $request['isIsolated'] = 'TRUE';
             }
-            $params = $this->omit($params, 'marginMode');
             $response = Async\await($this->sapiPostMarginLoan (array_merge($request, $params)));
             //
             //     {
@@ -6450,11 +6441,7 @@ class binance extends Exchange {
             //         "clientTag":""
             //     }
             //
-            $transaction = $this->parse_margin_loan($response, $currency);
-            return array_merge($transaction, array(
-                'amount' => $amount,
-                'symbol' => $symbol,
-            ));
+            return $this->parse_margin_loan($response, $currency);
         }) ();
     }
 

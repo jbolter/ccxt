@@ -238,10 +238,21 @@ module.exports = class bitrue extends Exchange {
                     'limit': 'FULL', // we change it from 'ACK' by default to 'FULL' (returns immediately if limit is not hit)
                 },
                 'networks': {
-                    'SPL': 'SOLANA',
-                    'SOL': 'SOLANA',
-                    'DOGE': 'dogecoin',
-                    'ADA': 'Cardano',
+                    'SPL': 'SOL',
+                    'SOLANA': 'SOL',
+                    'DOGECOIN': 'DOGE',
+                    'CARDANO': 'ADA',
+                    'ETH': 'ERC20',
+                    'ETHEREUM': 'ERC20',
+                    'TRX': 'TRC20',
+                    'TRON': 'TRC20',
+                    'BNB': 'BEP2',
+                    'BSC': 'BEP20',
+                },
+                'impliedNetworks': {
+                    'ETH': { 'ERC20': 'ETH' },
+                    'TRX': { 'TRC20': 'TRX' },
+                    'BNB': { 'BEP2': 'BNB' },
                 },
             },
             'commonCurrencies': {
@@ -1701,13 +1712,13 @@ module.exports = class bitrue extends Exchange {
             const currency = this.safeCurrency (currencyId);
             const code = this.safeString (currency, 'code');
             if ((codes === undefined) || (this.inArray (code, codes))) {
-                result[code] = this.parseTransactionFee (entry);
+                result[code] = this.parseTransactionFee (entry, code);
             }
         }
         return result;
     }
 
-    parseTransactionFee (transaction, currency = undefined) {
+    parseTransactionFee (transaction, currency) {
         //
         // {
         //     "coin": "egc",
@@ -1727,17 +1738,23 @@ module.exports = class bitrue extends Exchange {
         //     ]
         // }
         //
-        const result = {
-            'withdraw': {},
-            'deposit': {},
-            'info': transaction,
-        };
+        const result = {};
         const chainDetails = this.safeValue (transaction, 'chainDetail');
         for (let j = 0; j < chainDetails.length; j++) {
             const chainDetail = chainDetails[j];
             const networkId = this.safeString (chainDetail, 'chain');
-            const network = this.safeNetwork (networkId);
-            result['withdraw'][network] = this.safeNumber (chainDetail, 'withdrawFee');
+            const networks = this.safeValue (this.options, 'networks', {});
+            let network = this.safeString (networks, networkId, networkId);
+            const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
+            if (currency in impliedNetworks) {
+                const conversion = this.safeValue (impliedNetworks, currency, {});
+                network = this.safeString (conversion, network, network);
+            }
+            result[network] = {
+                'deposit': this.safeNumber (chainDetail, 'withdrawFee'),
+                'withdraw': undefined,
+                'info': transaction,
+            };
         }
         return result;
     }

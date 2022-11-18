@@ -237,18 +237,6 @@ module.exports = class bitrue extends Exchange {
                     'market': 'FULL', // 'ACK' for order id, 'RESULT' for full order or 'FULL' for order with fills
                     'limit': 'FULL', // we change it from 'ACK' by default to 'FULL' (returns immediately if limit is not hit)
                 },
-                'networks': {
-                    'SPL': 'SOL',
-                    'SOLANA': 'SOL',
-                    'DOGECOIN': 'DOGE',
-                    'CARDANO': 'ADA',
-                    'ETH': 'ERC20',
-                    'ETHEREUM': 'ERC20',
-                    'TRX': 'TRC20',
-                    'TRON': 'TRC20',
-                    'BNB': 'BEP2',
-                    'BSC': 'BEP20',
-                },
                 'impliedNetworks': {
                     'ETH': { 'ERC20': 'ETH' },
                     'TRX': { 'TRC20': 'TRX' },
@@ -394,7 +382,7 @@ module.exports = class bitrue extends Exchange {
         return this.safeInteger (response, 'serverTime');
     }
 
-    safeNetwork (networkId) {
+    safeNetwork (networkId, currency = undefined) {
         const uppercaseNetworkId = networkId.toUpperCase ();
         const networksById = {
             'Aeternity': 'Aeternity',
@@ -406,6 +394,7 @@ module.exports = class bitrue extends Exchange {
             'bch': 'bch',
             'BCH': 'BCH',
             'BEP2': 'BEP2',
+            'BSC': 'BEP20',
             'BEP20': 'BEP20',
             'Bitcoin': 'Bitcoin',
             'BRP20': 'BRP20',
@@ -421,6 +410,7 @@ module.exports = class bitrue extends Exchange {
             'dogecoin': 'DOGE',
             'EOS': 'EOS',
             'ERC20': 'ERC20',
+            'ETH': 'ERC20',
             'ETC': 'ETC',
             'Filecoin': 'Filecoin',
             'FREETON': 'FREETON',
@@ -454,6 +444,7 @@ module.exports = class bitrue extends Exchange {
             'Tezos': 'XTZ',
             'theta': 'theta',
             'THETA': 'THETA',
+            'TRX': 'TRX',
             'TRC20': 'TRC20',
             'VeChain': 'VeChain',
             'VECHAIN': 'VECHAIN',
@@ -463,7 +454,13 @@ module.exports = class bitrue extends Exchange {
             'XRPL': 'XRPL',
             'ZIL': 'ZIL',
         };
-        return this.safeString2 (networksById, networkId, uppercaseNetworkId, networkId);
+        networkId = this.safeString2 (networksById, networkId, uppercaseNetworkId, networkId);
+        const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
+        if (currency in impliedNetworks) {
+            const conversion = this.safeValue (impliedNetworks, currency, {});
+            networkId = this.safeString (conversion, networkId, networkId);
+        }
+        return networkId;
     }
 
     async fetchCurrencies (params = {}) {
@@ -1743,19 +1740,13 @@ module.exports = class bitrue extends Exchange {
         for (let j = 0; j < chainDetails.length; j++) {
             const chainDetail = chainDetails[j];
             const networkId = this.safeString (chainDetail, 'chain');
-            const networks = this.safeValue (this.options, 'networks', {});
-            let network = this.safeString (networks, networkId, networkId);
-            const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
-            if (currency in impliedNetworks) {
-                const conversion = this.safeValue (impliedNetworks, currency, {});
-                network = this.safeString (conversion, network, network);
-            }
+            const network = this.safeNetwork (networkId, currency);
             result[network] = {
-                'deposit': this.safeNumber (chainDetail, 'withdrawFee'),
-                'withdraw': undefined,
-                'info': transaction,
+                'deposit': undefined,
+                'withdraw': this.safeNumber (chainDetail, 'withdrawFee'),
             };
         }
+        result['info'] = transaction;
         return result;
     }
 

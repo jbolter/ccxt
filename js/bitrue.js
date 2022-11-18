@@ -444,7 +444,7 @@ module.exports = class bitrue extends Exchange {
             'Tezos': 'XTZ',
             'theta': 'theta',
             'THETA': 'THETA',
-            'TRX': 'TRX',
+            'TRX': 'TRC20',
             'TRC20': 'TRC20',
             'VeChain': 'VeChain',
             'VECHAIN': 'VECHAIN',

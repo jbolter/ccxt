@@ -1736,17 +1736,31 @@ module.exports = class bitrue extends Exchange {
         //     ]
         // }
         //
-        const result = {};
+        let result = {
+            'networks': {},
+        };
+        let withdraw = undefined;
         const chainDetails = this.safeValue (transaction, 'chainDetail');
         for (let j = 0; j < chainDetails.length; j++) {
             const chainDetail = chainDetails[j];
             const networkId = this.safeString (chainDetail, 'chain');
             const network = this.safeNetwork (networkId, currency);
-            result[network] = {
+            result['networks'][network] = {
                 'deposit': undefined,
                 'withdraw': this.safeNumber (chainDetail, 'withdrawFee'),
+                'percentage': false,
             };
         }
+        const chainDetailsLength = chainDetails.length;
+        if (chainDetailsLength === 1) {
+            const chainDetail = chainDetails[0];
+            withdraw = this.safeNumber (chainDetail, 'withdrawFee');
+        }
+        result = this.extend (result, {
+            'deposit': undefined,
+            'withdraw': withdraw,
+            'percentage': false,
+        });
         result['info'] = transaction;
         return result;
     }

@@ -1712,6 +1712,7 @@ module.exports = class bitrue extends Exchange {
                 result[code] = this.parseTransactionFee (entry, code);
             }
         }
+        result['info'] = response;
         return result;
     }
 

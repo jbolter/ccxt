@@ -43,6 +43,7 @@ module.exports = class bitrue extends Exchange {
                 'fetchCurrencies': true,
                 'fetchDepositAddress': false,
                 'fetchDeposits': true,
+                'fetchDepositWithdrawFees': true,
                 'fetchMarginMode': false,
                 'fetchMarkets': true,
                 'fetchMyTrades': true,
@@ -240,7 +241,20 @@ module.exports = class bitrue extends Exchange {
                 'impliedNetworks': {
                     'ETH': { 'ERC20': 'ETH' },
                     'TRX': { 'TRC20': 'TRX' },
-                    'BNB': { 'BEP2': 'BNB' },
+                },
+                'networks': {
+                    'ERC20': 'ETH',
+                    'BTC': 'BTC',
+                    'BEP20': 'BSC',
+                    'TRC20': 'TRX',
+                    'BEP2': 'BNB',
+                },
+                'networksById': {
+                    'ETH': 'ERC20',
+                    'BTC': 'BTC',
+                    'BSC': 'BEP20',
+                    'BEP20': 'BEP20',
+                    'TRX': 'TRC20',
                 },
             },
             'commonCurrencies': {
@@ -1685,11 +1699,11 @@ module.exports = class bitrue extends Exchange {
         return this.parseTransactions (data, currency);
     }
 
-    async fetchTransactionFees (codes = undefined, params = {}) {
+    async fetchDepositWithdrawFees (codes = undefined, params = {}) {
         /**
          * @method
-         * @name bitrue#fetchTransactionFees
-         * @description fetch transaction fees
+         * @name bitrue#fetchDepositWithdrawFees
+         * @description fetch deposit and withdraw fees
          * @see https://github.com/Bitrue-exchange/Spot-official-api-docs#exchangeInfo_endpoint
          * @param {[string]|undefined} codes list of unified currency codes
          * @param {object} params extra parameters specific to the bitrue api endpoint
@@ -1698,7 +1712,55 @@ module.exports = class bitrue extends Exchange {
         await this.loadMarkets ();
         const response = await this.v1PublicGetExchangeInfo (params);
         const coins = this.safeValue (response, 'coins');
-        return this.parseTransactionFees (coins, codes);
+        // console.log (coins);
+        return this.parseDepositWithdrawFees (coins, codes, 'coin');
+    }
+
+    parseDepositWithdrawFee (fee, currency = undefined) {
+        //
+        //   {
+        //       coin: 'adx',
+        //       coinFulName: 'Ambire AdEx',
+        //       chains: [ 'BSC' ],
+        //       chainDetail: [ [Object] ]
+        //   }
+        //
+        const chainDetails = this.safeValue (fee, 'chainDetail');
+        const chainDetailLength = chainDetails.length;
+        const result = {
+            'info': fee,
+            'withdraw': {
+                'fee': undefined,
+                'percentage': undefined,
+            },
+            'deposit': {
+                'fee': undefined,
+                'percentage': undefined,
+            },
+            'networks': {},
+        };
+        if (chainDetails !== undefined) {
+            for (let i = 0; i < chainDetailLength; i++) {
+                const chainDetail = chainDetails[i];
+                const networkId = this.safeString (chainDetail, 'chain');
+                let networkCode = this.networkIdToCode (networkId);
+                const currencyCode = this.safeString (currency, 'code');
+                const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
+                if (currencyCode in impliedNetworks) {
+                    const conversion = this.safeValue (impliedNetworks, currencyCode, {});
+                    networkCode = this.safeString (conversion, networkCode, networkCode);
+                }
+                result['networks'][networkCode] = {
+                    'deposit': { 'fee': undefined, 'percentage': undefined },
+                    'withdraw': { 'fee': this.safeNumber (chainDetail, 'withdrawFee'), 'percentage': false },
+                };
+                if (chainDetailLength === 1) {
+                    result['withdraw']['fee'] = this.safeNumber (chainDetail, 'withdrawFee');
+                    result['withdraw']['percentage'] = false;
+                }
+            }
+        }
+        return result;
     }
 
     parseTransactionFees (response, codes = undefined) {

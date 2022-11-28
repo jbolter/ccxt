@@ -92,7 +92,10 @@ class cryptocom extends Exchange {
             ),
             'urls' => array(
                 'logo' => 'https://user-images.githubusercontent.com/1294454/147792121-38ed5e36-c229-48d6-b49a-48d05fc19ed4.jpeg',
-                'test' => 'https://uat-api.3ona.co/v2',
+                'test' => array(
+                    'spot' => 'https://uat-api.3ona.co/v2',
+                    'derivatives' => 'https://uat-api.3ona.co/v2',
+                ),
                 'api' => array(
                     'spot' => 'https://api.crypto.com/v2',
                     'derivatives' => 'https://deriv-api.crypto.com/v1',
@@ -133,6 +136,7 @@ class cryptocom extends Exchange {
                             'private/create-order' => 2 / 3,
                             'private/cancel-order' => 2 / 3,
                             'private/cancel-all-orders' => 2 / 3,
+                            'private/create-order-list' => 10 / 3,
                             'private/get-order-history' => 10 / 3,
                             'private/get-open-orders' => 10 / 3,
                             'private/get-order-detail' => 1 / 3,
@@ -157,9 +161,9 @@ class cryptocom extends Exchange {
                             'private/margin/get-trades' => 100,
                             'private/deriv/transfer' => 10 / 3,
                             'private/deriv/get-transfer-history' => 10 / 3,
-                            'private/subaccount/get-sub-accounts' => 10 / 3,
-                            'private/subaccount/get-transfer-history' => 10 / 3,
-                            'private/subaccount/transfer' => 10 / 3,
+                            'private/get-accounts' => 10 / 3,
+                            'private/get-subaccount-balances' => 10 / 3,
+                            'private/create-subaccount-transfer' => 10 / 3,
                             'private/otc/get-otc-user' => 10 / 3,
                             'private/otc/get-instruments' => 10 / 3,
                             'private/otc/request-quote' => 100,
@@ -333,7 +337,12 @@ class cryptocom extends Exchange {
             //                    $margin_trading_enabled_5x => true,
             //                    $margin_trading_enabled_10x => true,
             //                    max_quantity => '100000000',
-            //                    min_quantity => '0.01'
+            //                    min_quantity => '0.01',
+            //                    max_price:'1',
+            //                    min_price:'0.00000001',
+            //                    last_update_date:1667263094857,
+            //                    quantity_tick_size:'0.1',
+            //                    price_tick_size:'0.00000001'
             //               ),
             //            )
             //        }
@@ -349,8 +358,7 @@ class cryptocom extends Exchange {
                 $quoteId = $this->safe_string($market, 'quote_currency');
                 $base = $this->safe_currency_code($baseId);
                 $quote = $this->safe_currency_code($quoteId);
-                $priceDecimals = $this->safe_string($market, 'price_decimals');
-                $minPrice = $this->parse_precision($priceDecimals);
+                $minPrice = $this->safe_string($market, 'min_price');
                 $minQuantity = $this->safe_string($market, 'min_quantity');
                 $maxLeverage = $this->parse_number('1');
                 $margin_trading_enabled_5x = $this->safe_value($market, 'margin_trading_enabled_5x');
@@ -386,8 +394,8 @@ class cryptocom extends Exchange {
                     'strike' => null,
                     'optionType' => null,
                     'precision' => array(
-                        'amount' => $this->parse_number($this->parse_precision($this->safe_string($market, 'quantity_decimals'))),
-                        'price' => $this->parse_number($this->parse_precision($priceDecimals)),
+                        'amount' => $this->safe_number($market, 'quantity_tick_size'),
+                        'price' => $this->safe_number($market, 'price_tick_size'),
                     ),
                     'limits' => array(
                         'leverage' => array(
@@ -400,7 +408,7 @@ class cryptocom extends Exchange {
                         ),
                         'price' => array(
                             'min' => $this->parse_number($minPrice),
-                            'max' => null,
+                            'max' => $this->safe_number($market, 'max_price'),
                         ),
                         'cost' => array(
                             'min' => $this->parse_number(Precise::string_mul($minQuantity, $minPrice)),

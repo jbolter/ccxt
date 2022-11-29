@@ -1743,13 +1743,8 @@ module.exports = class bitrue extends Exchange {
             for (let i = 0; i < chainDetailLength; i++) {
                 const chainDetail = chainDetails[i];
                 const networkId = this.safeString (chainDetail, 'chain');
-                let networkCode = this.networkIdToCode (networkId);
                 const currencyCode = this.safeString (currency, 'code');
-                const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
-                if (currencyCode in impliedNetworks) {
-                    const conversion = this.safeValue (impliedNetworks, currencyCode, {});
-                    networkCode = this.safeString (conversion, networkCode, networkCode);
-                }
+                const networkCode = this.networkIdToCode (networkId, currencyCode);
                 result['networks'][networkCode] = {
                     'deposit': { 'fee': undefined, 'percentage': undefined },
                     'withdraw': { 'fee': this.safeNumber (chainDetail, 'withdrawFee'), 'percentage': false },

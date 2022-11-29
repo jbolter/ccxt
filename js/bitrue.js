@@ -237,10 +237,6 @@ module.exports = class bitrue extends Exchange {
                     'market': 'FULL', // 'ACK' for order id, 'RESULT' for full order or 'FULL' for order with fills
                     'limit': 'FULL', // we change it from 'ACK' by default to 'FULL' (returns immediately if limit is not hit)
                 },
-                'impliedNetworks': {
-                    'ETH': { 'ERC20': 'ETH' },
-                    'TRX': { 'TRC20': 'TRX' },
-                },
                 'networks': {
                     'ERC20': 'ETH',
                     'BTC': 'BTC',
@@ -395,7 +391,7 @@ module.exports = class bitrue extends Exchange {
         return this.safeInteger (response, 'serverTime');
     }
 
-    safeNetwork (networkId, currency = undefined) {
+    safeNetwork (networkId) {
         const uppercaseNetworkId = networkId.toUpperCase ();
         const networksById = {
             'Aeternity': 'Aeternity',
@@ -407,7 +403,6 @@ module.exports = class bitrue extends Exchange {
             'bch': 'bch',
             'BCH': 'BCH',
             'BEP2': 'BEP2',
-            'BSC': 'BEP20',
             'BEP20': 'BEP20',
             'Bitcoin': 'Bitcoin',
             'BRP20': 'BRP20',
@@ -423,7 +418,6 @@ module.exports = class bitrue extends Exchange {
             'dogecoin': 'DOGE',
             'EOS': 'EOS',
             'ERC20': 'ERC20',
-            'ETH': 'ERC20',
             'ETC': 'ETC',
             'Filecoin': 'Filecoin',
             'FREETON': 'FREETON',
@@ -457,7 +451,6 @@ module.exports = class bitrue extends Exchange {
             'Tezos': 'XTZ',
             'theta': 'theta',
             'THETA': 'THETA',
-            'TRX': 'TRC20',
             'TRC20': 'TRC20',
             'VeChain': 'VeChain',
             'VECHAIN': 'VECHAIN',
@@ -467,13 +460,7 @@ module.exports = class bitrue extends Exchange {
             'XRPL': 'XRPL',
             'ZIL': 'ZIL',
         };
-        networkId = this.safeString2 (networksById, networkId, uppercaseNetworkId, networkId);
-        const impliedNetworks = this.safeValue (this.options, 'impliedNetworks');
-        if (currency in impliedNetworks) {
-            const conversion = this.safeValue (impliedNetworks, currency, {});
-            networkId = this.safeString (conversion, networkId, networkId);
-        }
-        return networkId;
+        return this.safeString2 (networksById, networkId, uppercaseNetworkId, networkId);
     }
 
     async fetchCurrencies (params = {}) {
@@ -1754,70 +1741,6 @@ module.exports = class bitrue extends Exchange {
                 }
             }
         }
-        return result;
-    }
-
-    parseTransactionFees (response, codes = undefined) {
-        const result = {};
-        for (let i = 0; i < response.length; i++) {
-            const entry = response[i];
-            const currencyId = this.safeString (entry, 'coin');
-            const currency = this.safeCurrency (currencyId);
-            const code = this.safeString (currency, 'code');
-            if ((codes === undefined) || (this.inArray (code, codes))) {
-                result[code] = this.parseTransactionFee (entry, code);
-            }
-        }
-        result['info'] = response;
-        return result;
-    }
-
-    parseTransactionFee (transaction, currency) {
-        //
-        // {
-        //     "coin": "egc",
-        //     "coinFulName": "EverGrow",
-        //     "chains": [
-        //         "BSC"
-        //     ],
-        //     "chainDetail": [
-        //         {
-        //             "chain": "BSC",
-        //             "enableWithdraw": true,
-        //             "enableDeposit": false,
-        //             "withdrawFee": "2500000.0000000000",
-        //             "minWithdraw": "5000000.0000000000",
-        //             "maxWithdraw": "10000000000000000.0000000000"
-        //         }
-        //     ]
-        // }
-        //
-        let result = {
-            'networks': {},
-        };
-        let withdraw = undefined;
-        const chainDetails = this.safeValue (transaction, 'chainDetail');
-        for (let j = 0; j < chainDetails.length; j++) {
-            const chainDetail = chainDetails[j];
-            const networkId = this.safeString (chainDetail, 'chain');
-            const network = this.safeNetwork (networkId, currency);
-            result['networks'][network] = {
-                'deposit': undefined,
-                'withdraw': this.safeNumber (chainDetail, 'withdrawFee'),
-                'percentage': false,
-            };
-        }
-        const chainDetailsLength = chainDetails.length;
-        if (chainDetailsLength === 1) {
-            const chainDetail = chainDetails[0];
-            withdraw = this.safeNumber (chainDetail, 'withdrawFee');
-        }
-        result = this.extend (result, {
-            'deposit': undefined,
-            'withdraw': withdraw,
-            'percentage': false,
-        });
-        result['info'] = transaction;
         return result;
     }
 

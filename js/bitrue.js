@@ -1698,7 +1698,6 @@ module.exports = class bitrue extends Exchange {
         await this.loadMarkets ();
         const response = await this.v1PublicGetExchangeInfo (params);
         const coins = this.safeValue (response, 'coins');
-        // console.log (coins);
         return this.parseDepositWithdrawFees (coins, codes, 'coin');
     }
 

@@ -239,17 +239,9 @@ module.exports = class bitrue extends Exchange {
                     'limit': 'FULL', // we change it from 'ACK' by default to 'FULL' (returns immediately if limit is not hit)
                 },
                 'networks': {
-                    'ERC20': 'ETH',
-                    'BTC': 'BTC',
-                    'BEP20': 'BSC',
                     'TRC20': 'TRX',
-                    'BEP2': 'BNB',
                 },
                 'networksById': {
-                    'ETH': 'ERC20',
-                    'BTC': 'BTC',
-                    'BSC': 'BEP20',
-                    'BEP20': 'BEP20',
                     'TRX': 'TRC20',
                 },
             },

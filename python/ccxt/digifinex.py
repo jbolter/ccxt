@@ -6,7 +6,6 @@
 from ccxt.base.exchange import Exchange
 import json
 from ccxt.base.errors import ExchangeError
-from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import PermissionDenied
 from ccxt.base.errors import AccountSuspended
 from ccxt.base.errors import BadRequest
@@ -21,6 +20,7 @@ from ccxt.base.errors import NetworkError
 from ccxt.base.errors import DDoSProtection
 from ccxt.base.errors import RateLimitExceeded
 from ccxt.base.errors import InvalidNonce
+from ccxt.base.errors import AuthenticationError
 from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
@@ -59,6 +59,8 @@ class digifinex(Exchange):
                 'fetchCurrencies': True,
                 'fetchDepositAddress': True,
                 'fetchDeposits': True,
+                'fetchDepositWithdrawFee': 'emulated',
+                'fetchDepositWithdrawFees': True,
                 'fetchFundingHistory': False,
                 'fetchFundingRate': True,
                 'fetchFundingRateHistory': True,
@@ -536,6 +538,7 @@ class digifinex(Exchange):
         marginMode, query = self.handle_margin_mode_and_params('fetchMarketsV2', params)
         method = 'publicSpotGetMarginSymbols' if (marginMode is not None) else 'publicSpotGetTradesSymbols'
         promises = [getattr(self, method)(query), self.publicSwapGetPublicInstruments(params)]
+        promises = promises
         spotMarkets = promises[0]
         swapMarkets = promises[1]
         #
@@ -604,7 +607,7 @@ class digifinex(Exchange):
             quote = self.safe_currency_code(quoteId)
             settle = self.safe_currency_code(settleId)
             #
-            # The status is documented in the exchange API docs as follows:
+            # The status is documented in the exchange API docs:
             # TRADING, HALT(delisted), BREAK(trading paused)
             # https://docs.digifinex.vip/en-ww/v3/#/public/spot/symbols
             # However, all spot markets actually have status == 'HALT'
@@ -628,7 +631,7 @@ class digifinex(Exchange):
                 isLinear = True if (not isInverse) else False
                 isTrading = self.safe_value(market, 'isTrading')
                 if isTrading:
-                    isAllowed = True
+                    isAllowed = 1
             result.append({
                 'id': id,
                 'symbol': symbol,
@@ -934,7 +937,7 @@ class digifinex(Exchange):
         see https://docs.digifinex.com/en-ww/swap/v2/rest.html#tickers
         :param [str]|None symbols: unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
         :param dict params: extra parameters specific to the digifinex api endpoint
-        :returns dict: an array of `ticker structures <https://docs.ccxt.com/en/latest/manual.html#ticker-structure>`
+        :returns dict: a dictionary of `ticker structures <https://docs.ccxt.com/en/latest/manual.html#ticker-structure>`
         """
         self.load_markets()
         symbols = self.market_symbols(symbols)
@@ -1427,7 +1430,7 @@ class digifinex(Exchange):
         :param int|None since: timestamp in ms of the earliest candle to fetch
         :param int|None limit: the maximum amount of candles to fetch
         :param dict params: extra parameters specific to the digifinex api endpoint
-        :returns [[int]]: A list of candles ordered as timestamp, open, high, low, close, volume
+        :returns [[int]]: A list of candles ordered, open, high, low, close, volume
         """
         self.load_markets()
         market = self.market(symbol)
@@ -1441,9 +1444,9 @@ class digifinex(Exchange):
                 request['limit'] = limit
         else:
             request['symbol'] = market['id']
-            request['period'] = self.timeframes[timeframe]
+            request['period'] = self.safe_string(self.timeframes, timeframe, timeframe)
             if since is not None:
-                startTime = int(since / 1000)
+                startTime = self.parse_to_int(since / 1000)
                 request['start_time'] = startTime
                 if limit is not None:
                     duration = self.parse_timeframe(timeframe)
@@ -1526,6 +1529,7 @@ class digifinex(Exchange):
         marketIdRequest = 'instrument_id' if swap else 'symbol'
         request[marketIdRequest] = market['id']
         postOnly = self.is_post_only(isMarketOrder, False, params)
+        postOnlyParsed = None
         if swap:
             reduceOnly = self.safe_value(params, 'reduceOnly', False)
             timeInForce = self.safe_string(params, 'timeInForce')
@@ -1552,7 +1556,7 @@ class digifinex(Exchange):
             request['size'] = amount  # swap orders require the amount to be the number of contracts
             params = self.omit(params, ['reduceOnly', 'timeInForce'])
         else:
-            postOnly = 1 if (postOnly is True) else 2
+            postOnlyParsed = 1 if (postOnly is True) else 2
             request['market'] = marketType
             suffix = ''
             if type == 'market':
@@ -1563,7 +1567,10 @@ class digifinex(Exchange):
             # limit orders require the amount in the base currency, market orders require the amount in the quote currency
             request['amount'] = self.amount_to_precision(symbol, amount)
         if postOnly:
-            request['postOnly'] = postOnly
+            if postOnlyParsed:
+                request['postOnly'] = postOnlyParsed
+            else:
+                request['postOnly'] = postOnly
         query = self.omit(params, ['postOnly', 'post_only'])
         response = getattr(self, method)(self.extend(request, query))
         #
@@ -1947,7 +1954,7 @@ class digifinex(Exchange):
         else:
             request['market'] = marketType
             if since is not None:
-                request['start_time'] = int(since / 1000)  # default 3 days from now, max 30 days
+                request['start_time'] = self.parse_to_int(since / 1000)  # default 3 days from now, max 30 days
         if market is not None:
             marketIdRequest = 'instrument_id' if (marketType == 'swap') else 'symbol'
             request[marketIdRequest] = market['id']
@@ -2129,7 +2136,7 @@ class digifinex(Exchange):
         else:
             request['market'] = marketType
             if since is not None:
-                request['start_time'] = int(since / 1000)  # default 3 days from now, max 30 days
+                request['start_time'] = self.parse_to_int(since / 1000)  # default 3 days from now, max 30 days
         marketIdRequest = 'instrument_id' if (marketType == 'swap') else 'symbol'
         if symbol is not None:
             request[marketIdRequest] = market['id']
@@ -2265,7 +2272,7 @@ class digifinex(Exchange):
         else:
             request['market'] = marketType
             if since is not None:
-                request['start_time'] = int(since / 1000)  # default 3 days from now, max 30 days
+                request['start_time'] = self.parse_to_int(since / 1000)  # default 3 days from now, max 30 days
         currencyIdRequest = 'currency' if (marketType == 'swap') else 'currency_mark'
         currency = None
         if code is not None:
@@ -2363,7 +2370,7 @@ class digifinex(Exchange):
         #     }
         #
         data = self.safe_value(response, 'data', [])
-        addresses = self.parse_deposit_addresses(data)
+        addresses = self.parse_deposit_addresses(data, [currency['code']])
         address = self.safe_value(addresses, code)
         if address is None:
             raise InvalidAddress(self.id + ' fetchDepositAddress() did not return an address for ' + code + ' - create the deposit address in the user settings on the exchange website first.')
@@ -2575,13 +2582,7 @@ class digifinex(Exchange):
         #         "code": 0
         #     }
         #
-        transfer = self.parse_transfer(response, currency)
-        return self.extend(transfer, {
-            'amount': amount,
-            'currency': code,
-            'fromAccount': fromAccount,
-            'toAccount': toAccount,
-        })
+        return self.parse_transfer(response, currency)
 
     def withdraw(self, code, amount, address, tag=None, params={}):
         """
@@ -3482,6 +3483,113 @@ class digifinex(Exchange):
             if (defaultType == 'margin') or (isMargin is True):
                 marginMode = 'cross'
         return [marginMode, params]
+
+    def fetch_deposit_withdraw_fees(self, codes=None, params={}):
+        """
+        fetch deposit and withdraw fees
+        see https://docs.digifinex.com/en-ww/spot/v3/rest.html#get-currency-deposit-and-withdrawal-information
+        :param [str]|None codes: not used by fetchDepositWithdrawFees()
+        :param dict params: extra parameters specific to the digifinex api endpoint
+        :returns dict: a list of `fee structures <https://docs.ccxt.com/en/latest/manual.html#fee-structure>`
+        """
+        self.load_markets()
+        response = self.publicSpotGetCurrencies(params)
+        #
+        #   {
+        #       "data": [
+        #           {
+        #               "deposit_status": 0,
+        #               "min_withdraw_fee": 5,
+        #               "withdraw_fee_currency": "USDT",
+        #               "chain": "OMNI",
+        #               "withdraw_fee_rate": 0,
+        #               "min_withdraw_amount": 10,
+        #               "currency": "USDT",
+        #               "withdraw_status": 0,
+        #               "min_deposit_amount": 10
+        #           },
+        #           {
+        #               "deposit_status": 1,
+        #               "min_withdraw_fee": 5,
+        #               "withdraw_fee_currency": "USDT",
+        #               "chain": "ERC20",
+        #               "withdraw_fee_rate": 0,
+        #               "min_withdraw_amount": 10,
+        #               "currency": "USDT",
+        #               "withdraw_status": 1,
+        #               "min_deposit_amount": 10
+        #           },
+        #       ],
+        #       "code": 200,
+        #   }
+        #
+        data = self.safe_value(response, 'data')
+        return self.parse_deposit_withdraw_fees(data, codes)
+
+    def parse_deposit_withdraw_fees(self, response, codes=None, currencyIdKey=None):
+        #
+        #     [
+        #         {
+        #             "deposit_status": 0,
+        #             "min_withdraw_fee": 5,
+        #             "withdraw_fee_currency": "USDT",
+        #             "chain": "OMNI",
+        #             "withdraw_fee_rate": 0,
+        #             "min_withdraw_amount": 10,
+        #             "currency": "USDT",
+        #             "withdraw_status": 0,
+        #             "min_deposit_amount": 10
+        #         },
+        #         {
+        #             "deposit_status": 1,
+        #             "min_withdraw_fee": 5,
+        #             "withdraw_fee_currency": "USDT",
+        #             "chain": "ERC20",
+        #             "withdraw_fee_rate": 0,
+        #             "min_withdraw_amount": 10,
+        #             "currency": "USDT",
+        #             "withdraw_status": 1,
+        #             "min_deposit_amount": 10
+        #         },
+        #     ]
+        #
+        depositWithdrawFees = {}
+        codes = self.market_codes(codes)
+        for i in range(0, len(response)):
+            entry = response[i]
+            currencyId = self.safe_string(entry, 'currency')
+            code = self.safe_currency_code(currencyId)
+            if (codes is None) or (self.in_array(code, codes)):
+                depositWithdrawFee = self.safe_value(depositWithdrawFees, code)
+                if depositWithdrawFee is None:
+                    depositWithdrawFees[code] = self.deposit_withdraw_fee({})
+                    depositWithdrawFees[code]['info'] = []
+                depositWithdrawFees[code]['info'].append(entry)
+                networkId = self.safe_string(entry, 'chain')
+                withdrawFee = self.safe_value(entry, 'min_withdraw_fee')
+                withdrawResult = {
+                    'fee': withdrawFee,
+                    'percentage': False if (withdrawFee is not None) else None,
+                }
+                depositResult = {
+                    'fee': None,
+                    'percentage': None,
+                }
+                if networkId is not None:
+                    networkCode = self.network_id_to_code(networkId)
+                    depositWithdrawFees[code]['networks'][networkCode] = {
+                        'withdraw': withdrawResult,
+                        'deposit': depositResult,
+                    }
+                else:
+                    depositWithdrawFees[code]['withdraw'] = withdrawResult
+                    depositWithdrawFees[code]['deposit'] = depositResult
+        depositWithdrawCodes = list(depositWithdrawFees.keys())
+        for i in range(0, len(depositWithdrawCodes)):
+            code = depositWithdrawCodes[i]
+            currency = self.currency(code)
+            depositWithdrawFees[code] = self.assign_default_deposit_withdraw_fees(depositWithdrawFees[code], currency)
+        return depositWithdrawFees
 
     def sign(self, path, api=[], method='GET', params={}, headers=None, body=None):
         signed = api[0] == 'private'

@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.gemini import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -24,7 +26,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class gemini(Exchange):
+class gemini(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(gemini, self).describe(), {
@@ -477,9 +479,9 @@ class gemini(Exchange):
             #
         promises = promises
         for i in range(0, len(promises)):
-            response = promises[i]
-            marketId = self.safe_string_lower(response, 'symbol')
-            result[marketId] = self.parse_market(response)
+            responseInner = promises[i]
+            marketId = self.safe_string_lower(responseInner, 'symbol')
+            result[marketId] = self.parse_market(responseInner)
         return self.to_array(result)
 
     def parse_market(self, response):
@@ -1158,7 +1160,7 @@ class gemini(Exchange):
             market = self.market(symbol)  # throws on non-existent symbol
         return self.parse_orders(response, market, since, limit)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         see https://docs.gemini.com/rest-api/#new-order
@@ -1489,7 +1491,7 @@ class gemini(Exchange):
             }, query)
             payload = self.json(request)
             payload = self.string_to_base64(payload)
-            signature = self.hmac(payload, self.encode(self.secret), hashlib.sha384)
+            signature = self.hmac(self.encode(payload), self.encode(self.secret), hashlib.sha384)
             headers = {
                 'Content-Type': 'text/plain',
                 'X-GEMINI-APIKEY': self.apiKey,
@@ -1509,7 +1511,7 @@ class gemini(Exchange):
             if isinstance(body, str):
                 feedback = self.id + ' ' + body
                 self.throw_broadly_matched_exception(self.exceptions['broad'], body, feedback)
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         #
         #     {
         #         "result": "error",
@@ -1519,13 +1521,14 @@ class gemini(Exchange):
         #
         result = self.safe_string(response, 'result')
         if result == 'error':
-            reason = self.safe_string(response, 'reason')
+            reasonInner = self.safe_string(response, 'reason')
             message = self.safe_string(response, 'message')
             feedback = self.id + ' ' + message
-            self.throw_exactly_matched_exception(self.exceptions['exact'], reason, feedback)
+            self.throw_exactly_matched_exception(self.exceptions['exact'], reasonInner, feedback)
             self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
             self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
             raise ExchangeError(feedback)  # unknown message
+        return None
 
     def create_deposit_address(self, code: str, params={}):
         """

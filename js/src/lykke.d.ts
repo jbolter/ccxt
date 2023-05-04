@@ -1,5 +1,5 @@
 import Exchange from './abstract/lykke.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class lykke extends Exchange {
     describe(): any;
     fetchCurrencies(params?: {}): Promise<{}>;
@@ -14,7 +14,7 @@ export default class lykke extends Exchange {
     fetchBalance(params?: {}): Promise<import("./base/types.js").Balances>;
     parseOrderStatus(status: any): string;
     parseOrder(order: any, market?: any): any;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<{
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<{
         id: string;
         info: any;
         clientOrderId: any;
@@ -23,7 +23,7 @@ export default class lykke extends Exchange {
         lastTradeTimestamp: any;
         symbol: any;
         type: any;
-        side: any;
+        side: string;
         price: any;
         amount: any;
         cost: any;
@@ -95,5 +95,5 @@ export default class lykke extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

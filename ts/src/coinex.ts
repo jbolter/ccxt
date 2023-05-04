@@ -7,7 +7,7 @@ import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
 import { md5 } from './static_dependencies/noble-hashes/md5.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -819,12 +819,12 @@ export default class coinex extends Exchange {
         const result = {};
         for (let i = 0; i < marketIds.length; i++) {
             const marketId = marketIds[i];
-            const market = this.safeMarket (marketId, undefined, undefined, marketType);
-            const symbol = market['symbol'];
+            const marketInner = this.safeMarket (marketId, undefined, undefined, marketType);
+            const symbol = marketInner['symbol'];
             const ticker = this.parseTicker ({
                 'date': timestamp,
                 'ticker': tickers[marketId],
-            }, market);
+            }, marketInner);
             ticker['symbol'] = symbol;
             result[symbol] = ticker;
         }
@@ -1729,7 +1729,7 @@ export default class coinex extends Exchange {
         }, market);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name coinex#createOrder
@@ -1786,12 +1786,12 @@ export default class coinex extends Exchange {
                 }
             } else {
                 method = 'perpetualPrivatePostOrderPut' + this.capitalize (type);
-                side = (side === 'buy') ? 2 : 1;
+                const requestSide = (side === 'buy') ? 2 : 1;
                 if (stopPrice !== undefined) {
                     request['stop_price'] = this.priceToPrecision (symbol, stopPrice);
                     request['stop_type'] = this.safeInteger (params, 'stop_type', 1); // 1: triggered by the latest transaction, 2: mark price, 3: index price;
                     request['amount'] = this.amountToPrecision (symbol, amount);
-                    request['side'] = side;
+                    request['side'] = requestSide;
                     if (type === 'limit') {
                         method = 'perpetualPrivatePostOrderPutStopLimit';
                         request['price'] = this.priceToPrecision (symbol, price);
@@ -1820,7 +1820,7 @@ export default class coinex extends Exchange {
                         method = 'perpetualPrivatePostOrderCloseLimit';
                         request['position_id'] = positionId;
                     } else {
-                        request['side'] = side;
+                        request['side'] = requestSide;
                     }
                     request['price'] = this.priceToPrecision (symbol, price);
                     request['amount'] = this.amountToPrecision (symbol, amount);
@@ -1829,7 +1829,7 @@ export default class coinex extends Exchange {
                         method = 'perpetualPrivatePostOrderCloseMarket';
                         request['position_id'] = positionId;
                     } else {
-                        request['side'] = side;
+                        request['side'] = requestSide;
                         request['amount'] = this.amountToPrecision (symbol, amount);
                     }
                 }
@@ -3676,10 +3676,10 @@ export default class coinex extends Exchange {
         for (let i = 0; i < marketIds.length; i++) {
             const marketId = marketIds[i];
             if (marketId.indexOf ('_') === -1) { // skip _signprice and _indexprice
-                const market = this.safeMarket (marketId, undefined, undefined, 'swap');
+                const marketInner = this.safeMarket (marketId, undefined, undefined, 'swap');
                 const ticker = tickers[marketId];
                 ticker['timestamp'] = timestamp;
-                result.push (this.parseFundingRate (ticker, market));
+                result.push (this.parseFundingRate (ticker, marketInner));
             }
         }
         return this.filterByArray (result, 'symbol', symbols);
@@ -3798,12 +3798,12 @@ export default class coinex extends Exchange {
         for (let i = 0; i < result.length; i++) {
             const entry = result[i];
             const marketId = this.safeString (entry, 'market');
-            const symbol = this.safeSymbol (marketId);
+            const symbolInner = this.safeSymbol (marketId, market, undefined, 'swap');
             const timestamp = this.safeTimestamp (entry, 'time');
             rates.push ({
                 'info': entry,
-                'symbol': symbol,
-                'fundingRate': this.safeString (entry, 'funding_rate'),
+                'symbol': symbolInner,
+                'fundingRate': this.safeNumber (entry, 'funding_rate'),
                 'timestamp': timestamp,
                 'datetime': this.iso8601 (timestamp),
             });
@@ -4731,7 +4731,7 @@ export default class coinex extends Exchange {
 
     handleErrors (httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return;
+            return undefined;
         }
         const code = this.safeString (response, 'code');
         const data = this.safeValue (response, 'data');
@@ -4755,5 +4755,6 @@ export default class coinex extends Exchange {
             const ErrorClass = this.safeValue (responseCodes, code, ExchangeError);
             throw new ErrorClass (response['message']);
         }
+        return undefined;
     }
 }

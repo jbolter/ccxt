@@ -1,5 +1,5 @@
 import Exchange from './abstract/bigone.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class bigone extends Exchange {
     describe(): any;
     fetchMarkets(params?: {}): Promise<any[]>;
@@ -16,7 +16,7 @@ export default class bigone extends Exchange {
     parseBalance(response: any): import("./base/types.js").Balances;
     fetchBalance(params?: {}): Promise<import("./base/types.js").Balances>;
     parseOrder(order: any, market?: any): any;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<any>;
     fetchOrder(id: string, symbol?: string, params?: {}): Promise<any>;
@@ -105,5 +105,5 @@ export default class bigone extends Exchange {
         updated: number;
         fee: any;
     }>;
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

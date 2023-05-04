@@ -982,7 +982,7 @@ class bitopro extends Exchange {
         ), $market);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -1648,10 +1648,10 @@ class bitopro extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return; // fallback to the default $error handler
+            return null; // fallback to the default $error handler
         }
         if ($code >= 200 && $code < 300) {
-            return;
+            return null;
         }
         $feedback = $this->id . ' ' . $body;
         $error = $this->safe_string($response, 'error');

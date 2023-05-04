@@ -5,6 +5,7 @@
 
 from ccxt.async_support.base.exchange import Exchange
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import PermissionDenied
@@ -708,7 +709,7 @@ class buda(Exchange):
         }
         return await self.fetch_orders(symbol, since, limit, self.extend(request, params))
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -720,12 +721,12 @@ class buda(Exchange):
         :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
         """
         await self.load_markets()
-        side = 'Bid' if (side == 'buy') else 'Ask'
+        requestSide = 'Bid' if (side == 'buy') else 'Ask'
         market = self.market(symbol)
         request = {
             'market': market['id'],
             'price_type': type,
-            'type': side,
+            'type': requestSide,
             'amount': self.amount_to_precision(symbol, amount),
         }
         if type == 'limit':
@@ -866,9 +867,9 @@ class buda(Exchange):
         for i in range(1, len(receiveAddresses)):
             receiveAddress = receiveAddresses[i]
             if receiveAddress['ready']:
-                address = receiveAddress['address']
-                self.check_address(address)
-                addressPool.append(address)
+                addressInner = receiveAddress['address']
+                self.check_address(addressInner)
+                addressPool.append(addressInner)
         addressPoolLength = len(addressPool)
         if addressPoolLength < 1:
             raise AddressPending(self.id + ': there are no addresses ready for receiving ' + code + ', retry again later)')
@@ -1051,7 +1052,7 @@ class buda(Exchange):
 
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         if code >= 400:
             errorCode = self.safe_string(response, 'code')
             message = self.safe_string(response, 'message', body)
@@ -1059,3 +1060,4 @@ class buda(Exchange):
             if errorCode is not None:
                 self.throw_exactly_matched_exception(self.exceptions, errorCode, feedback)
                 raise ExchangeError(feedback)
+        return None

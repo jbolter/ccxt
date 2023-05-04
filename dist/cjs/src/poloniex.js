@@ -244,6 +244,7 @@ class poloniex extends poloniex$1 {
             'exceptions': {
                 'exact': {
                     // General
+                    '200': errors.CancelPending,
                     '500': errors.ExchangeNotAvailable,
                     '603': errors.RequestTimeout,
                     '601': errors.BadRequest,
@@ -678,6 +679,7 @@ class poloniex extends poloniex$1 {
                 'withdraw': undefined,
                 'fee': fee,
                 'precision': undefined,
+                'networks': {},
                 'limits': {
                     'amount': {
                         'min': undefined,
@@ -787,7 +789,7 @@ class poloniex extends poloniex$1 {
         const marketId = this.safeString(trade, 'symbol');
         market = this.safeMarket(marketId, market, '_');
         const symbol = market['symbol'];
-        const side = this.safeStringLower(trade, 'side');
+        const side = this.safeStringLower2(trade, 'side', 'takerSide');
         let fee = undefined;
         const priceString = this.safeString(trade, 'price');
         const amountString = this.safeString(trade, 'quantity');
@@ -1690,7 +1692,7 @@ class poloniex extends poloniex$1 {
         await this.loadMarkets();
         const year = 31104000; // 60 * 60 * 24 * 30 * 12 = one year of history, why not
         const now = this.seconds();
-        const start = (since !== undefined) ? parseInt((since / 1000).toString()) : now - 10 * year;
+        const start = (since !== undefined) ? this.parseToInt(since / 1000) : now - 10 * year;
         const request = {
             'start': start,
             'end': now, // UNIX timestamp, required
@@ -2039,9 +2041,11 @@ class poloniex extends poloniex$1 {
             'txid': txid,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
+            'comment': undefined,
             'fee': {
                 'currency': code,
                 'cost': this.parseNumber(feeCostString),
+                'rate': undefined,
             },
         };
     }
@@ -2092,7 +2096,7 @@ class poloniex extends poloniex$1 {
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return;
+            return undefined;
         }
         //
         //     {
@@ -2101,13 +2105,14 @@ class poloniex extends poloniex$1 {
         //     }
         //
         if ('code' in response) {
-            const code = response['code'];
+            const codeInner = response['code'];
             const message = this.safeString(response, 'message');
             const feedback = this.id + ' ' + body;
-            this.throwExactlyMatchedException(this.exceptions['exact'], code, feedback);
+            this.throwExactlyMatchedException(this.exceptions['exact'], codeInner, feedback);
             this.throwBroadlyMatchedException(this.exceptions['broad'], message, feedback);
             throw new errors.ExchangeError(feedback); // unknown message
         }
+        return undefined;
     }
 }
 

@@ -4,8 +4,10 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
+from ccxt.abstract.bitopro import ImplicitAPI
 import hashlib
 import math
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -18,7 +20,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class bitopro(Exchange):
+class bitopro(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(bitopro, self).describe(), {
@@ -932,7 +934,7 @@ class bitopro(Exchange):
             'info': order,
         }, market)
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -1530,9 +1532,9 @@ class bitopro(Exchange):
 
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return  # fallback to the default error handler
+            return None  # fallback to the default error handler
         if code >= 200 and code < 300:
-            return
+            return None
         feedback = self.id + ' ' + body
         error = self.safe_string(response, 'error')
         self.throw_exactly_matched_exception(self.exceptions['exact'], error, feedback)

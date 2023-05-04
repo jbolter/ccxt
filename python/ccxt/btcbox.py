@@ -4,8 +4,10 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.btcbox import ImplicitAPI
 import hashlib
 import json
+from ccxt.base.types import OrderSide
 from typing import Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import PermissionDenied
@@ -19,7 +21,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class btcbox(Exchange):
+class btcbox(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(btcbox, self).describe(), {
@@ -276,7 +278,7 @@ class btcbox(Exchange):
         #
         return self.parse_trades(response, market, since, limit)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -503,20 +505,20 @@ class btcbox(Exchange):
 
     def handle_errors(self, httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return  # resort to defaultErrorHandler
+            return None  # resort to defaultErrorHandler
         # typical error response: {"result":false,"code":"401"}
         if httpCode >= 400:
-            return  # resort to defaultErrorHandler
+            return None  # resort to defaultErrorHandler
         result = self.safe_value(response, 'result')
         if result is None or result is True:
-            return  # either public API(no error codes expected) or success
+            return None  # either public API(no error codes expected) or success
         code = self.safe_value(response, 'code')
         feedback = self.id + ' ' + body
         self.throw_exactly_matched_exception(self.exceptions, code, feedback)
         raise ExchangeError(feedback)  # unknown message
 
-    def request(self, path, api='public', method='GET', params={}, headers=None, body=None, config={}, context={}):
-        response = self.fetch2(path, api, method, params, headers, body, config, context)
+    def request(self, path, api='public', method='GET', params={}, headers=None, body=None, config={}):
+        response = self.fetch2(path, api, method, params, headers, body, config)
         if isinstance(response, str):
             # sometimes the exchange returns whitespace prepended to json
             response = self.strip(response)

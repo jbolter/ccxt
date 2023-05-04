@@ -6,7 +6,7 @@ import { AuthenticationError, BadRequest, ExchangeError, NotSupported, Permissio
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -530,6 +530,7 @@ export default class bitstamp extends Exchange {
                     'max': undefined,
                 },
             },
+            'networks': {},
         };
     }
 
@@ -1273,7 +1274,7 @@ export default class bitstamp extends Exchange {
         return result;
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name bitstamp#createOrder
@@ -2061,7 +2062,7 @@ export default class bitstamp extends Exchange {
 
     handleErrors (httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return;
+            return undefined;
         }
         //
         //     {"error": "No permission found"} // fetchDepositAddress returns this on apiKeys that don't have the permission required
@@ -2086,11 +2087,11 @@ export default class bitstamp extends Exchange {
                     }
                 }
             }
-            const reason = this.safeValue (response, 'reason', {});
-            if (typeof reason === 'string') {
-                errors.push (reason);
+            const reasonInner = this.safeValue (response, 'reason', {});
+            if (typeof reasonInner === 'string') {
+                errors.push (reasonInner);
             } else {
-                const all = this.safeValue (reason, '__all__', []);
+                const all = this.safeValue (reasonInner, '__all__', []);
                 for (let i = 0; i < all.length; i++) {
                     errors.push (all[i]);
                 }
@@ -2107,5 +2108,6 @@ export default class bitstamp extends Exchange {
             }
             throw new ExchangeError (feedback);
         }
+        return undefined;
     }
 }

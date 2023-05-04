@@ -6,7 +6,7 @@ import { ArgumentsRequired, AuthenticationError, RateLimitExceeded, BadRequest, 
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 // ---------------------------------------------------------------------------
 
@@ -143,6 +143,8 @@ export default class woo extends Exchange {
                             'funding_rate_history': 1,
                             'futures': 1,
                             'futures/{symbol}': 1,
+                            'orderbook/{symbol}': 1,
+                            'kline': 1,
                         },
                     },
                     'private': {
@@ -151,8 +153,6 @@ export default class woo extends Exchange {
                             'order/{oid}': 1,
                             'client/order/{client_order_id}': 1,
                             'orders': 1,
-                            'orderbook/{symbol}': 1,
-                            'kline': 1,
                             'client/trade/{tid}': 1,
                             'order/{oid}/trades': 1,
                             'client/trades': 1,
@@ -332,7 +332,10 @@ export default class woo extends Exchange {
             let symbol = base + '/' + quote;
             let contractSize = undefined;
             let linear = undefined;
-            if (isSwap) {
+            let margin = true;
+            const contract = isSwap;
+            if (contract) {
+                margin = false;
                 settleId = this.safeString (parts, 2);
                 settle = this.safeCurrencyCode (settleId);
                 symbol = base + '/' + quote + ':' + settle;
@@ -351,12 +354,12 @@ export default class woo extends Exchange {
                 'settleId': settleId,
                 'type': marketType,
                 'spot': isSpot,
-                'margin': true,
+                'margin': margin,
                 'swap': isSwap,
                 'future': false,
                 'option': false,
                 'active': undefined,
-                'contract': isSwap,
+                'contract': contract,
                 'linear': linear,
                 'inverse': undefined,
                 'contractSize': contractSize,
@@ -718,7 +721,7 @@ export default class woo extends Exchange {
         return result;
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name woo#createOrder
@@ -1156,7 +1159,7 @@ export default class woo extends Exchange {
             limit = Math.min (limit, 1000);
             request['max_level'] = limit;
         }
-        const response = await this.v1PrivateGetOrderbookSymbol (this.extend (request, params));
+        const response = await this.v1PublicGetOrderbookSymbol (this.extend (request, params));
         //
         // {
         //   success: true,
@@ -1198,7 +1201,7 @@ export default class woo extends Exchange {
         if (limit !== undefined) {
             request['limit'] = Math.min (limit, 1000);
         }
-        const response = await this.v1PrivateGetKline (this.extend (request, params));
+        const response = await this.v1PublicGetKline (this.extend (request, params));
         // {
         //     success: true,
         //     rows: [
@@ -1676,6 +1679,7 @@ export default class woo extends Exchange {
         const addressFrom = this.safeString (transaction, 'source_address');
         const timestamp = this.safeTimestamp (transaction, 'created_time');
         return {
+            'info': transaction,
             'id': this.safeString2 (transaction, 'id', 'withdraw_id'),
             'txid': this.safeString (transaction, 'tx_id'),
             'timestamp': timestamp,
@@ -1684,13 +1688,15 @@ export default class woo extends Exchange {
             'addressFrom': addressFrom,
             'addressTo': addressTo,
             'tag': this.safeString (transaction, 'extra'),
+            'tagFrom': undefined,
+            'tagTo': undefined,
             'type': movementDirection,
             'amount': this.safeNumber (transaction, 'amount'),
             'currency': code,
             'status': this.parseTransactionStatus (this.safeString (transaction, 'status')),
             'updated': this.safeTimestamp (transaction, 'updated_time'),
+            'comment': undefined,
             'fee': fee,
-            'info': transaction,
         };
     }
 
@@ -1987,7 +1993,7 @@ export default class woo extends Exchange {
 
     handleErrors (httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (!response) {
-            return; // fallback to default error handler
+            return undefined; // fallback to default error handler
         }
         //
         //     400 Bad Request {"success":false,"code":-1012,"message":"Amount is required for buy market orders when margin disabled."}
@@ -1999,6 +2005,7 @@ export default class woo extends Exchange {
             this.throwBroadlyMatchedException (this.exceptions['broad'], body, feedback);
             this.throwExactlyMatchedException (this.exceptions['exact'], errorCode, feedback);
         }
+        return undefined;
     }
 
     parseIncome (income, market = undefined) {

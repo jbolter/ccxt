@@ -478,7 +478,7 @@ class coinone extends Exchange {
         return $this->parse_trades($completeOrders, $market, $since, $limit);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         /**
          * create a trade order
          * @see https://doc.coinone.co.kr/#tag/Order-V2/operation/v2_order_limit_buy
@@ -870,7 +870,7 @@ class coinone extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return;
+            return null;
         }
         if (is_array($response) && array_key_exists('result', $response)) {
             $result = $response['result'];
@@ -886,5 +886,6 @@ class coinone extends Exchange {
         } else {
             throw new ExchangeError($this->id . ' ' . $body);
         }
+        return null;
     }
 }

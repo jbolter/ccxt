@@ -603,7 +603,7 @@ class bitbank extends Exchange {
         ), $market);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         /**
          * create a trade order
          * @param {string} $symbol unified $symbol of the $market to create an order in
@@ -872,7 +872,7 @@ class bitbank extends Exchange {
 
     public function handle_errors($httpCode, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return;
+            return null;
         }
         $success = $this->safe_integer($response, 'success');
         $data = $this->safe_value($response, 'data');
@@ -944,10 +944,11 @@ class bitbank extends Exchange {
             $message = $this->safe_string($errorMessages, $code, 'Error');
             $ErrorClass = $this->safe_value($errorClasses, $code);
             if ($ErrorClass !== null) {
-                throw new $ErrorClass($message);
+                throw new $errorClasses[$code]($message);
             } else {
                 throw new ExchangeError($this->id . ' ' . $this->json($response));
             }
         }
+        return null;
     }
 }

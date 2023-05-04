@@ -4,6 +4,8 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.stex import ImplicitAPI
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -21,7 +23,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class stex(Exchange):
+class stex(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(stex, self).describe(), {
@@ -387,6 +389,7 @@ class stex(Exchange):
                         'max': None,
                     },
                 },
+                'networks': {},
             }
         return result
 
@@ -446,7 +449,7 @@ class stex(Exchange):
             minPrice = Precise.string_max(minBuyPrice, minSellPrice)
             buyFee = Precise.string_div(self.safe_string(market, 'buy_fee_percent'), '100')
             sellFee = Precise.string_div(self.safe_string(market, 'sell_fee_percent'), '100')
-            fee = Precise.string_max(buyFee, sellFee)
+            fee = self.parse_number(Precise.string_max(buyFee, sellFee))
             result.append({
                 'id': id,
                 'numericId': numericId,
@@ -1127,7 +1130,7 @@ class stex(Exchange):
                 result['fee'] = None
         return self.safe_order(result, market)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -2461,7 +2464,7 @@ class stex(Exchange):
 
     def handle_errors(self, httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         #
         #     {"success":false,"message":"Wrong parameters","errors":{"candleType":["Invalid Candle Type!"]}}
         #     {"success":false,"message":"Wrong parameters","errors":{"time":["timeStart or timeEnd is less then 1"]}}
@@ -2474,3 +2477,4 @@ class stex(Exchange):
             self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
             self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
             raise ExchangeError(feedback)  # unknown message
+        return None

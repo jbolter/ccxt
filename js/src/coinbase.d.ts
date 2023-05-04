@@ -1,5 +1,5 @@
 import Exchange from './abstract/coinbase.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class coinbase extends Exchange {
     describe(): any;
     fetchTime(params?: {}): Promise<number>;
@@ -89,7 +89,7 @@ export default class coinbase extends Exchange {
     prepareAccountRequestWithCurrencyCode(code?: string, limit?: Int, params?: {}): Promise<{
         account_id: string;
     }>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     parseOrder(order: any, market?: any): any;
     parseOrderStatus(status: any): string;
     parseOrderType(type: any): string;
@@ -112,5 +112,5 @@ export default class coinbase extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

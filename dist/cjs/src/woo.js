@@ -141,6 +141,8 @@ class woo extends woo$1 {
                             'funding_rate_history': 1,
                             'futures': 1,
                             'futures/{symbol}': 1,
+                            'orderbook/{symbol}': 1,
+                            'kline': 1,
                         },
                     },
                     'private': {
@@ -149,8 +151,6 @@ class woo extends woo$1 {
                             'order/{oid}': 1,
                             'client/order/{client_order_id}': 1,
                             'orders': 1,
-                            'orderbook/{symbol}': 1,
-                            'kline': 1,
                             'client/trade/{tid}': 1,
                             'order/{oid}/trades': 1,
                             'client/trades': 1,
@@ -329,7 +329,10 @@ class woo extends woo$1 {
             let symbol = base + '/' + quote;
             let contractSize = undefined;
             let linear = undefined;
-            if (isSwap) {
+            let margin = true;
+            const contract = isSwap;
+            if (contract) {
+                margin = false;
                 settleId = this.safeString(parts, 2);
                 settle = this.safeCurrencyCode(settleId);
                 symbol = base + '/' + quote + ':' + settle;
@@ -348,12 +351,12 @@ class woo extends woo$1 {
                 'settleId': settleId,
                 'type': marketType,
                 'spot': isSpot,
-                'margin': true,
+                'margin': margin,
                 'swap': isSwap,
                 'future': false,
                 'option': false,
                 'active': undefined,
-                'contract': isSwap,
+                'contract': contract,
                 'linear': linear,
                 'inverse': undefined,
                 'contractSize': contractSize,
@@ -1146,7 +1149,7 @@ class woo extends woo$1 {
             limit = Math.min(limit, 1000);
             request['max_level'] = limit;
         }
-        const response = await this.v1PrivateGetOrderbookSymbol(this.extend(request, params));
+        const response = await this.v1PublicGetOrderbookSymbol(this.extend(request, params));
         //
         // {
         //   success: true,
@@ -1187,7 +1190,7 @@ class woo extends woo$1 {
         if (limit !== undefined) {
             request['limit'] = Math.min(limit, 1000);
         }
-        const response = await this.v1PrivateGetKline(this.extend(request, params));
+        const response = await this.v1PublicGetKline(this.extend(request, params));
         // {
         //     success: true,
         //     rows: [
@@ -1649,6 +1652,7 @@ class woo extends woo$1 {
         const addressFrom = this.safeString(transaction, 'source_address');
         const timestamp = this.safeTimestamp(transaction, 'created_time');
         return {
+            'info': transaction,
             'id': this.safeString2(transaction, 'id', 'withdraw_id'),
             'txid': this.safeString(transaction, 'tx_id'),
             'timestamp': timestamp,
@@ -1657,13 +1661,15 @@ class woo extends woo$1 {
             'addressFrom': addressFrom,
             'addressTo': addressTo,
             'tag': this.safeString(transaction, 'extra'),
+            'tagFrom': undefined,
+            'tagTo': undefined,
             'type': movementDirection,
             'amount': this.safeNumber(transaction, 'amount'),
             'currency': code,
             'status': this.parseTransactionStatus(this.safeString(transaction, 'status')),
             'updated': this.safeTimestamp(transaction, 'updated_time'),
+            'comment': undefined,
             'fee': fee,
-            'info': transaction,
         };
     }
     parseTransactionStatus(status) {
@@ -1954,7 +1960,7 @@ class woo extends woo$1 {
     }
     handleErrors(httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (!response) {
-            return; // fallback to default error handler
+            return undefined; // fallback to default error handler
         }
         //
         //     400 Bad Request {"success":false,"code":-1012,"message":"Amount is required for buy market orders when margin disabled."}
@@ -1966,6 +1972,7 @@ class woo extends woo$1 {
             this.throwBroadlyMatchedException(this.exceptions['broad'], body, feedback);
             this.throwExactlyMatchedException(this.exceptions['exact'], errorCode, feedback);
         }
+        return undefined;
     }
     parseIncome(income, market = undefined) {
         //

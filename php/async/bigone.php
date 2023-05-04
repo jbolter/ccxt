@@ -444,7 +444,7 @@ class bigone extends Exchange {
             //     }
             //
             $data = $this->safe_value($response, 'data', array());
-            $timestamp = $this->safe_integer($data, 'timestamp');
+            $timestamp = $this->safe_integer($data, 'Timestamp');
             return $this->parse_to_int($timestamp / 1000000);
         }) ();
     }
@@ -773,8 +773,12 @@ class bigone extends Exchange {
             Async\await($this->load_markets());
             $type = $this->safe_string($params, 'type', '');
             $params = $this->omit($params, 'type');
-            $method = 'privateGet' . $this->capitalize($type) . 'Accounts';
-            $response = Async\await($this->$method ($params));
+            $response = null;
+            if ($type === 'funding' || $type === 'fund') {
+                $response = Async\await($this->privateGetFundAccounts ($params));
+            } else {
+                $response = Async\await($this->privateGetAccounts ($params));
+            }
             //
             //     {
             //         "code":0,
@@ -846,7 +850,7 @@ class bigone extends Exchange {
         ), $market);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade $order
@@ -860,11 +864,11 @@ class bigone extends Exchange {
              */
             Async\await($this->load_markets());
             $market = $this->market($symbol);
-            $side = ($side === 'buy') ? 'BID' : 'ASK';
+            $requestSide = ($side === 'buy') ? 'BID' : 'ASK';
             $uppercaseType = strtoupper($type);
             $request = array(
                 'asset_pair_name' => $market['id'], // asset pair name BTC-USDT, required
-                'side' => $side, // $order $side one of "ASK"/"BID", required
+                'side' => $requestSide, // $order $side one of "ASK"/"BID", required
                 'amount' => $this->amount_to_precision($symbol, $amount), // $order $amount, string, required
                 // 'price' => $this->price_to_precision($symbol, $price), // $order $price, string, required
                 'type' => $uppercaseType,
@@ -1555,7 +1559,7 @@ class bigone extends Exchange {
 
     public function handle_errors($httpCode, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return; // fallback to default error handler
+            return null; // fallback to default error handler
         }
         //
         //      array("code":10013,"message":"Resource not found")
@@ -1570,5 +1574,6 @@ class bigone extends Exchange {
             $this->throw_broadly_matched_exception($this->exceptions['broad'], $message, $feedback);
             throw new ExchangeError($feedback); // unknown $message
         }
+        return null;
     }
 }

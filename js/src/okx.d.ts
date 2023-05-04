@@ -1,5 +1,5 @@
 import Exchange from './abstract/okx.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class okx extends Exchange {
     describe(): any;
     handleMarketTypeAndParams(methodName: any, market?: any, params?: {}): any;
@@ -45,7 +45,7 @@ export default class okx extends Exchange {
         taker: number;
     }>;
     fetchBalance(params?: {}): Promise<import("./base/types.js").Balances>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     editOrder(id: string, symbol: any, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     parseIds(ids: any): any;
@@ -368,5 +368,5 @@ export default class okx extends Exchange {
     setSandboxMode(enable: any): void;
     fetchDepositWithdrawFees(codes?: any, params?: {}): Promise<{}>;
     parseDepositWithdrawFees(response: any, codes?: any, currencyIdKey?: any): {};
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

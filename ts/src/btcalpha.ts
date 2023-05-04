@@ -6,7 +6,7 @@ import { ExchangeError, AuthenticationError, DDoSProtection, InvalidOrder, Insuf
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -729,7 +729,7 @@ export default class btcalpha extends Exchange {
         }, market);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name btcalpha#createOrder
@@ -914,7 +914,7 @@ export default class btcalpha extends Exchange {
 
     handleErrors (code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return; // fallback to default error handler
+            return undefined; // fallback to default error handler
         }
         //
         //     {"date":1570599531.4814300537,"error":"Out of balance -9.99243661 BTC"}
@@ -931,7 +931,7 @@ export default class btcalpha extends Exchange {
             throw new DDoSProtection (feedback);
         }
         if (code < 400) {
-            return;
+            return undefined;
         }
         throw new ExchangeError (feedback);
     }

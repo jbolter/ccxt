@@ -5,7 +5,7 @@ import Exchange from './abstract/bitforex.js';
 import { ExchangeError, ArgumentsRequired, AuthenticationError, OrderNotFound, InsufficientFunds, DDoSProtection, PermissionDenied, BadSymbol, InvalidOrder } from './base/errors.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -633,7 +633,7 @@ export default class bitforex extends Exchange {
         return this.parseOrders (response['data'], market, since, limit);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name bitforex#createOrder
@@ -718,18 +718,19 @@ export default class bitforex extends Exchange {
 
     handleErrors (code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (typeof body !== 'string') {
-            return; // fallback to default error handler
+            return undefined; // fallback to default error handler
         }
         if ((body[0] === '{') || (body[0] === '[')) {
             const feedback = this.id + ' ' + body;
             const success = this.safeValue (response, 'success');
             if (success !== undefined) {
                 if (!success) {
-                    const code = this.safeString (response, 'code');
-                    this.throwExactlyMatchedException (this.exceptions, code, feedback);
+                    const codeInner = this.safeString (response, 'code');
+                    this.throwExactlyMatchedException (this.exceptions, codeInner, feedback);
                     throw new ExchangeError (feedback);
                 }
             }
         }
+        return undefined;
     }
 }

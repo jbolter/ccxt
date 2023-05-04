@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.bitbank import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import PermissionDenied
@@ -16,7 +18,7 @@ from ccxt.base.errors import AuthenticationError
 from ccxt.base.decimal_to_precision import TICK_SIZE
 
 
-class bitbank(Exchange):
+class bitbank(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(bitbank, self).describe(), {
@@ -591,7 +593,7 @@ class bitbank(Exchange):
             'info': order,
         }, market)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -839,7 +841,7 @@ class bitbank(Exchange):
 
     def handle_errors(self, httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return
+            return None
         success = self.safe_integer(response, 'success')
         data = self.safe_value(response, 'data')
         if not success or not data:
@@ -910,6 +912,7 @@ class bitbank(Exchange):
             message = self.safe_string(errorMessages, code, 'Error')
             ErrorClass = self.safe_value(errorClasses, code)
             if ErrorClass is not None:
-                raise ErrorClass(message)
+                raise errorClasses[code](message)
             else:
                 raise ExchangeError(self.id + ' ' + self.json(response))
+        return None

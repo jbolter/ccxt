@@ -1,5 +1,5 @@
 import Exchange from './abstract/idex.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class idex extends Exchange {
     describe(): any;
     priceToPrecision(symbol: any, price: any): any;
@@ -25,7 +25,7 @@ export default class idex extends Exchange {
     parseOrderStatus(status: any): string;
     parseOrder(order: any, market?: any): any;
     associateWallet(walletAddress: any, params?: {}): Promise<any>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     withdraw(code: string, amount: any, address: any, tag?: any, params?: {}): Promise<{
         info: any;
         id: string;
@@ -48,7 +48,7 @@ export default class idex extends Exchange {
     }>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<import("./base/types.js").Order[]>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
-    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
     fetchDeposit(id: string, code?: string, params?: {}): Promise<{
         info: any;
         id: string;
@@ -114,7 +114,7 @@ export default class idex extends Exchange {
         updated: number;
         fee: any;
     };
-    calculateRateLimiterCost(api: any, method: any, path: any, params: any, config?: {}, context?: {}): any;
+    calculateRateLimiterCost(api: any, method: any, path: any, params: any, config?: {}): any;
     sign(path: any, api?: string, method?: string, params?: {}, headers?: any, body?: any): {
         url: string;
         method: string;

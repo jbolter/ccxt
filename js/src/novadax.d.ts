@@ -1,5 +1,5 @@
 import Exchange from './abstract/novadax.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class novadax extends Exchange {
     describe(): any;
     fetchTime(params?: {}): Promise<number>;
@@ -14,7 +14,7 @@ export default class novadax extends Exchange {
     parseOHLCV(ohlcv: any, market?: any): number[];
     parseBalance(response: any): import("./base/types.js").Balances;
     fetchBalance(params?: {}): Promise<import("./base/types.js").Balances>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     fetchOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     fetchOrders(symbol?: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").Order[]>;
@@ -66,7 +66,12 @@ export default class novadax extends Exchange {
         txid: string;
         timestamp: number;
         datetime: string;
-        fee: any;
+        comment: any;
+        fee: {
+            currency: any;
+            cost: any;
+            rate: any;
+        };
     }>;
     fetchAccounts(params?: {}): Promise<any[]>;
     fetchDeposits(code?: string, since?: Int, limit?: Int, params?: {}): Promise<any>;
@@ -91,7 +96,12 @@ export default class novadax extends Exchange {
         txid: string;
         timestamp: number;
         datetime: string;
-        fee: any;
+        comment: any;
+        fee: {
+            currency: any;
+            cost: any;
+            rate: any;
+        };
     };
     fetchMyTrades(symbol?: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").Trade[]>;
     sign(path: any, api?: string, method?: string, params?: {}, headers?: any, body?: any): {
@@ -100,5 +110,5 @@ export default class novadax extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(code: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

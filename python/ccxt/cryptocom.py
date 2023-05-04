@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.cryptocom import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -24,7 +26,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class cryptocom(Exchange):
+class cryptocom(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(cryptocom, self).describe(), {
@@ -1111,7 +1113,7 @@ class cryptocom(Exchange):
         order = self.safe_value(result, 'order_info', result)
         return self.parse_order(order, market)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -2398,7 +2400,8 @@ class cryptocom(Exchange):
         return self.milliseconds()
 
     def sign(self, path, api='public', method='GET', params={}, headers=None, body=None):
-        type, access = api
+        type = self.safe_string(api, 0)
+        access = self.safe_string(api, 1)
         url = self.urls['api'][type] + '/' + path
         query = self.omit(params, self.extract_params(path))
         if access == 'public':
@@ -2444,3 +2447,4 @@ class cryptocom(Exchange):
             feedback = self.id + ' ' + body
             self.throw_exactly_matched_exception(self.exceptions['exact'], errorCode, feedback)
             raise ExchangeError(self.id + ' ' + body)
+        return None

@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
+from ccxt.abstract.coinone import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -17,7 +19,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class coinone(Exchange):
+class coinone(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(coinone, self).describe(), {
@@ -469,7 +471,7 @@ class coinone(Exchange):
         completeOrders = self.safe_value(response, 'completeOrders', [])
         return self.parse_trades(completeOrders, market, since, limit)
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         see https://doc.coinone.co.kr/#tag/Order-V2/operation/v2_order_limit_buy
@@ -835,7 +837,7 @@ class coinone(Exchange):
 
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return
+            return None
         if 'result' in response:
             result = response['result']
             if result != 'success':
@@ -848,3 +850,4 @@ class coinone(Exchange):
                 raise ExchangeError(feedback)
         else:
             raise ExchangeError(self.id + ' ' + body)
+        return None

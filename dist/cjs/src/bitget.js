@@ -110,6 +110,7 @@ class bitget extends bitget$1 {
                 'api': {
                     'spot': 'https://api.{hostname}',
                     'mix': 'https://api.{hostname}',
+                    'p2p': 'https://api.{hostname}',
                 },
                 'www': 'https://www.bitget.com',
                 'doc': [
@@ -212,7 +213,9 @@ class bitget extends bitget$1 {
                             'plan/currentPlan': 2,
                             'plan/historyPlan': 2,
                             'position/singlePosition': 2,
+                            'position/singlePosition-v2': 2,
                             'position/allPosition': 2,
+                            'position/allPosition-v2': 2,
                             'trace/currentTrack': 2,
                             'trace/followerOrder': 2,
                             'trace/historyTrack': 2,
@@ -253,6 +256,14 @@ class bitget extends bitget$1 {
                             'trace/followerCloseByTrackingNo': 2,
                             'trace/followerCloseByAll': 2,
                             'trace/followerSetTpsl': 2,
+                        },
+                    },
+                    'p2p': {
+                        'get': {
+                            'merchant/merchantList': 1,
+                            'merchant/merchantInfo': 1,
+                            'merchant/advList': 1,
+                            'merchant/orderList': 1,
                         },
                     },
                 },
@@ -635,7 +646,7 @@ class bitget extends bitget$1 {
                     '40016': errors.PermissionDenied,
                     '40017': errors.ExchangeError,
                     '40018': errors.PermissionDenied,
-                    '40019': errors.InvalidOrder,
+                    '40019': errors.BadRequest,
                     '40102': errors.BadRequest,
                     '40103': errors.BadRequest,
                     '40104': errors.ExchangeError,
@@ -1612,18 +1623,19 @@ class bitget extends bitget$1 {
          */
         await this.loadMarkets();
         const market = this.market(symbol);
-        const [marketType, query] = this.handleMarketTypeAndParams('fetchOrderBook', market, params);
-        const method = this.getSupportedMapping(marketType, {
-            'spot': 'publicSpotGetMarketDepth',
-            'swap': 'publicMixGetMarketDepth',
-        });
         const request = {
             'symbol': market['id'],
         };
         if (limit !== undefined) {
             request['limit'] = limit;
         }
-        const response = await this[method](this.extend(request, query));
+        let response = undefined;
+        if (market['spot']) {
+            response = await this.publicSpotGetMarketDepth(this.extend(request, params));
+        }
+        else {
+            response = await this.publicMixGetMarketDepth(this.extend(request, params));
+        }
         //
         //     {
         //       code: '00000',
@@ -1729,12 +1741,14 @@ class bitget extends bitget$1 {
         const request = {
             'symbol': market['id'],
         };
-        const [marketType, query] = this.handleMarketTypeAndParams('fetchTicker', market, params);
-        const method = this.getSupportedMapping(marketType, {
-            'spot': 'publicSpotGetMarketTicker',
-            'swap': 'publicMixGetMarketTicker',
-        });
-        const response = await this[method](this.extend(request, query));
+        let response = undefined;
+        const extended = this.extend(request, params);
+        if (market['spot']) {
+            response = await this.publicSpotGetMarketTicker(extended);
+        }
+        else {
+            response = await this.publicMixGetMarketTicker(extended);
+        }
         //
         //     {
         //         code: '00000',
@@ -1777,12 +1791,8 @@ class bitget extends bitget$1 {
             market = this.market(symbol);
         }
         [type, params] = this.handleMarketTypeAndParams('fetchTickers', market, params);
-        const method = this.getSupportedMapping(type, {
-            'spot': 'publicSpotGetMarketTickers',
-            'swap': 'publicMixGetMarketTickers',
-        });
         const request = {};
-        if (method === 'publicMixGetMarketTickers') {
+        if (type !== 'spot') {
             let subType = undefined;
             [subType, params] = this.handleSubTypeAndParams('fetchTickers', undefined, params);
             let productType = (subType === 'linear') ? 'UMCBL' : 'DMCBL';
@@ -1791,7 +1801,14 @@ class bitget extends bitget$1 {
             }
             request['productType'] = productType;
         }
-        const response = await this[method](this.extend(request, params));
+        const extended = this.extend(request, params);
+        let response = undefined;
+        if (type === 'spot') {
+            response = await this.publicSpotGetMarketTickers(extended);
+        }
+        else {
+            response = await this.publicMixGetMarketTickers(extended);
+        }
         //
         // spot
         //
@@ -1952,12 +1969,14 @@ class bitget extends bitget$1 {
         if (limit !== undefined) {
             request['limit'] = limit;
         }
-        const [marketType, query] = this.handleMarketTypeAndParams('fetchTrades', market, params);
-        const method = this.getSupportedMapping(marketType, {
-            'spot': 'publicSpotGetMarketFills',
-            'swap': 'publicMixGetMarketFills',
-        });
-        const response = await this[method](this.extend(request, query));
+        const extended = this.extend(request, params);
+        let response = undefined;
+        if (market['spot']) {
+            response = await this.publicSpotGetMarketFills(extended);
+        }
+        else {
+            response = await this.publicMixGetMarketFills(extended);
+        }
         //
         //     {
         //       code: '00000',
@@ -2068,7 +2087,7 @@ class bitget extends bitget$1 {
             'taker': this.safeNumber(data, 'takerFeeRate'),
         };
     }
-    parseOHLCV(ohlcv, market = undefined, timeframe = '1m') {
+    parseOHLCV(ohlcv, market = undefined) {
         //
         // spot
         //
@@ -2109,6 +2128,7 @@ class bitget extends bitget$1 {
          * @method
          * @name bitget#fetchOHLCV
          * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+         * @see https://bitgetlimited.github.io/apidoc/en/mix/#get-candle-data
          * @param {string} symbol unified symbol of the market to fetch OHLCV data for
          * @param {string} timeframe the length of time each candle represents
          * @param {int|undefined} since timestamp in ms of the earliest candle to fetch
@@ -2122,15 +2142,11 @@ class bitget extends bitget$1 {
         const request = {
             'symbol': market['id'],
         };
-        const [marketType, query] = this.handleMarketTypeAndParams('fetchOHLCV', market, params);
-        const method = this.getSupportedMapping(marketType, {
-            'spot': 'publicSpotGetMarketCandles',
-            'swap': 'publicMixGetMarketCandles',
-        });
-        const until = this.safeInteger2(query, 'until', 'till');
+        const until = this.safeInteger2(params, 'until', 'till');
         if (limit === undefined) {
             limit = 100;
         }
+        const marketType = market['spot'] ? 'spot' : 'swap';
         const timeframes = this.options['timeframes'][marketType];
         const selectedTimeframe = this.safeString(timeframes, timeframe, timeframe);
         const duration = this.parseTimeframe(timeframe);
@@ -2147,7 +2163,7 @@ class bitget extends bitget$1 {
                 request['before'] = until;
             }
         }
-        else if (market['swap']) {
+        else if (market['contract']) {
             request['granularity'] = selectedTimeframe;
             const now = this.milliseconds();
             if (since === undefined) {
@@ -2164,8 +2180,15 @@ class bitget extends bitget$1 {
                 }
             }
         }
-        const ommitted = this.omit(query, ['until', 'till']);
-        const response = await this[method](this.extend(request, ommitted));
+        const ommitted = this.omit(params, ['until', 'till']);
+        const extended = this.extend(request, ommitted);
+        let response = undefined;
+        if (market['spot']) {
+            response = await this.publicSpotGetMarketCandles(extended);
+        }
+        else {
+            response = await this.publicMixGetMarketCandles(extended);
+        }
         //  [ ["1645911960000","39406","39407","39374.5","39379","35.526","1399132.341"] ]
         const data = this.safeValue(response, 'data', response);
         return this.parseOHLCVs(data, market, timeframe, since, limit);
@@ -2422,6 +2445,7 @@ class bitget extends bitget$1 {
         let method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeOrders',
             'swap': 'privateMixPostOrderPlaceOrder',
+            'future': 'privateMixPostOrderPlaceOrder',
         });
         const exchangeSpecificTifParam = this.safeStringN(params, ['force', 'timeInForceValue', 'timeInForce']);
         let postOnly = undefined;
@@ -2570,6 +2594,7 @@ class bitget extends bitget$1 {
         let method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostPlanModifyPlan',
             'swap': 'privateMixPostPlanModifyPlan',
+            'future': 'privateMixPostPlanModifyPlan',
         });
         if (triggerPrice !== undefined) {
             // default triggerType to market price for unification
@@ -2651,6 +2676,7 @@ class bitget extends bitget$1 {
         let method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeCancelOrder',
             'swap': 'privateMixPostOrderCancelOrder',
+            'future': 'privateMixPostOrderCancelOrder',
         });
         const request = {
             'symbol': market['id'],
@@ -2699,7 +2725,7 @@ class bitget extends bitget$1 {
             request['symbol'] = market['id'];
             request['orderIds'] = ids;
         }
-        else if (type === 'swap') {
+        else {
             method = 'privateMixPostOrderCancelBatchOrders';
             request['symbol'] = market['id'];
             request['marginCoin'] = market['quote'];
@@ -2831,6 +2857,7 @@ class bitget extends bitget$1 {
         const method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeOrderInfo',
             'swap': 'privateMixGetOrderDetail',
+            'future': 'privateMixGetOrderDetail',
         });
         const request = {
             'symbol': market['id'],
@@ -2915,6 +2942,7 @@ class bitget extends bitget$1 {
         let method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeOpenOrders',
             'swap': 'privateMixGetOrderCurrent',
+            'future': 'privateMixGetOrderCurrent',
         });
         const stop = this.safeValue(query, 'stop');
         if (stop) {
@@ -3107,6 +3135,7 @@ class bitget extends bitget$1 {
         let method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeHistory',
             'swap': 'privateMixGetOrderHistory',
+            'future': 'privateMixGetOrderHistory',
         });
         const stop = this.safeValue(params, 'stop');
         if (stop) {
@@ -3247,7 +3276,7 @@ class bitget extends bitget$1 {
         //     }
         //
         const data = this.safeValue(response, 'data');
-        return this.safeValue(data, 'orderList', data);
+        return this.safeValue(data, 'orderList', []);
     }
     async fetchLedger(code = undefined, since = undefined, limit = undefined, params = {}) {
         /**
@@ -3406,6 +3435,7 @@ class bitget extends bitget$1 {
         const method = this.getSupportedMapping(marketType, {
             'spot': 'privateSpotPostTradeFills',
             'swap': 'privateMixGetOrderFills',
+            'future': 'privateMixGetOrderFills',
         });
         const request = {
             'symbol': market['id'],
@@ -3453,7 +3483,7 @@ class bitget extends bitget$1 {
             'symbol': market['id'],
             'marginCoin': market['settleId'],
         };
-        const response = await this.privateMixGetPositionSinglePosition(this.extend(request, params));
+        const response = await this.privateMixGetPositionSinglePositionV2(this.extend(request, params));
         //
         //     {
         //       code: '00000',
@@ -3510,7 +3540,7 @@ class bitget extends bitget$1 {
         const request = {
             'productType': productType,
         };
-        const response = await this.privateMixGetPositionAllPosition(this.extend(request, params));
+        const response = await this.privateMixGetPositionAllPositionV2(this.extend(request, params));
         //
         //     {
         //       code: '00000',
@@ -3704,12 +3734,12 @@ class bitget extends bitget$1 {
         for (let i = 0; i < data.length; i++) {
             const entry = data[i];
             const marketId = this.safeString(entry, 'symbol');
-            const symbol = this.safeSymbol(marketId, market);
+            const symbolInner = this.safeSymbol(marketId, market);
             const timestamp = this.safeInteger(entry, 'settleTime');
             rates.push({
                 'info': entry,
-                'symbol': symbol,
-                'fundingRate': this.safeString(entry, 'fundingRate'),
+                'symbol': symbolInner,
+                'fundingRate': this.safeNumber(entry, 'fundingRate'),
                 'timestamp': timestamp,
                 'datetime': this.iso8601(timestamp),
             });
@@ -4296,7 +4326,7 @@ class bitget extends bitget$1 {
     }
     handleErrors(code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (!response) {
-            return; // fallback to default error handler
+            return undefined; // fallback to default error handler
         }
         //
         // spot
@@ -4337,11 +4367,21 @@ class bitget extends bitget$1 {
         if (nonZeroErrorCode || nonEmptyMessage) {
             throw new errors.ExchangeError(feedback); // unknown message
         }
+        return undefined;
     }
     sign(path, api = [], method = 'GET', params = {}, headers = undefined, body = undefined) {
         const signed = api[0] === 'private';
         const endpoint = api[1];
-        const pathPart = (endpoint === 'spot') ? '/api/spot/v1' : '/api/mix/v1';
+        let pathPart = '';
+        if (endpoint === 'spot') {
+            pathPart = '/api/spot/v1';
+        }
+        else if (endpoint === 'mix') {
+            pathPart = '/api/mix/v1';
+        }
+        else {
+            pathPart = '/api/p2p/v1';
+        }
         const request = '/' + this.implodeParams(path, params);
         const payload = pathPart + request;
         let url = this.implodeHostname(this.urls['api'][endpoint]) + payload;
@@ -4363,9 +4403,9 @@ class bitget extends bitget$1 {
             }
             else {
                 if (Object.keys(params).length) {
-                    const query = '?' + this.urlencode(this.keysort(params));
-                    url += query;
-                    auth += query;
+                    const queryInner = '?' + this.urlencode(this.keysort(params));
+                    url += queryInner;
+                    auth += queryInner;
                 }
             }
             const signature = this.hmac(this.encode(auth), this.encode(this.secret), sha256.sha256, 'base64');

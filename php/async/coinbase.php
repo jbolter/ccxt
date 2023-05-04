@@ -1968,7 +1968,7 @@ class coinbase extends Exchange {
         }) ();
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -2817,7 +2817,7 @@ class coinbase extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return; // fallback to default error handler
+            return null; // fallback to default error handler
         }
         $feedback = $this->id . ' ' . $body;
         //
@@ -2861,5 +2861,6 @@ class coinbase extends Exchange {
         if (($data === null) && (!$advancedTrade)) {
             throw new ExchangeError($this->id . ' failed due to a malformed $response ' . $this->json($response));
         }
+        return null;
     }
 }

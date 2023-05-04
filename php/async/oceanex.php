@@ -624,7 +624,7 @@ class oceanex extends Exchange {
         }) ();
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -970,7 +970,7 @@ class oceanex extends Exchange {
         //     array("code":1011,"message":"This IP 'x.x.x.x' is not allowed","data":array())
         //
         if ($response === null) {
-            return;
+            return null;
         }
         $errorCode = $this->safe_string($response, 'code');
         $message = $this->safe_string($response, 'message');
@@ -980,5 +980,6 @@ class oceanex extends Exchange {
             $this->throw_exactly_matched_exception($this->exceptions['exact'], $message, $feedback);
             throw new ExchangeError($feedback);
         }
+        return null;
     }
 }

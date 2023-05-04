@@ -1,5 +1,5 @@
 import Exchange from './abstract/phemex.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class phemex extends Exchange {
     describe(): any;
     parseSafeNumber(value?: any): any;
@@ -111,7 +111,7 @@ export default class phemex extends Exchange {
     };
     fetchMarkets(params?: {}): Promise<any[]>;
     fetchCurrencies(params?: {}): Promise<{}>;
-    parseBidAsk(bidask: any, priceKey?: number, amountKey?: number, market?: any): number[];
+    customParseBidAsk(bidask: any, priceKey?: number, amountKey?: number, market?: any): number[];
     customParseOrderBook(orderbook: any, symbol: any, timestamp?: any, bidsKey?: string, asksKey?: string, priceKey?: number, amountKey?: number, market?: any): {
         symbol: any;
         timestamp: any;
@@ -130,6 +130,7 @@ export default class phemex extends Exchange {
     fetchOHLCV(symbol: string, timeframe?: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").OHLCV[]>;
     parseTicker(ticker: any, market?: any): import("./base/types.js").Ticker;
     fetchTicker(symbol: string, params?: {}): Promise<import("./base/types.js").Ticker>;
+    fetchTickers(symbols?: string[], params?: {}): Promise<any>;
     fetchTrades(symbol: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").Trade[]>;
     parseTrade(trade: any, market?: any): import("./base/types.js").Trade;
     parseSpotBalance(response: any): import("./base/types.js").Balances;
@@ -142,7 +143,7 @@ export default class phemex extends Exchange {
     parseOrderSide(side: any): string;
     parseSwapOrder(order: any, market?: any): any;
     parseOrder(order: any, market?: any): any;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     editOrder(id: string, symbol: any, type?: any, side?: any, amount?: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<any>;
@@ -258,5 +259,6 @@ export default class phemex extends Exchange {
         status: string;
     };
     parseTransferStatus(status: any): string;
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    fetchFundingRateHistory(symbol?: string, since?: Int, limit?: Int, params?: {}): Promise<any>;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

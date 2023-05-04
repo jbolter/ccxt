@@ -1,5 +1,5 @@
 import Exchange from './abstract/bitstamp.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class bitstamp extends Exchange {
     describe(): any;
     fetchMarkets(params?: {}): Promise<any[]>;
@@ -32,6 +32,7 @@ export default class bitstamp extends Exchange {
                 max: any;
             };
         };
+        networks: {};
     };
     fetchMarketsFromCache(params?: {}): Promise<any>;
     fetchCurrencies(params?: {}): Promise<{}>;
@@ -68,7 +69,7 @@ export default class bitstamp extends Exchange {
     parseTransactionFees(response: any, codes?: any): {};
     fetchDepositWithdrawFees(codes?: any, params?: {}): Promise<{}>;
     parseDepositWithdrawFees(response: any, codes?: any, currencyIdKey?: any): {};
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<any>;
     parseOrderStatus(status: any): string;
@@ -185,5 +186,5 @@ export default class bitstamp extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

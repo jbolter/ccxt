@@ -734,7 +734,7 @@ class buda extends Exchange {
         return $this->fetch_orders($symbol, $since, $limit, array_merge($request, $params));
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         /**
          * create a trade $order
          * @param {string} $symbol unified $symbol of the $market to create an $order in
@@ -746,12 +746,12 @@ class buda extends Exchange {
          * @return {array} an ~@link https://docs.ccxt.com/#/?id=$order-structure $order structure~
          */
         $this->load_markets();
-        $side = ($side === 'buy') ? 'Bid' : 'Ask';
+        $requestSide = ($side === 'buy') ? 'Bid' : 'Ask';
         $market = $this->market($symbol);
         $request = array(
             'market' => $market['id'],
             'price_type' => $type,
-            'type' => $side,
+            'type' => $requestSide,
             'amount' => $this->amount_to_precision($symbol, $amount),
         );
         if ($type === 'limit') {
@@ -902,9 +902,9 @@ class buda extends Exchange {
         for ($i = 1; $i < count($receiveAddresses); $i++) {
             $receiveAddress = $receiveAddresses[$i];
             if ($receiveAddress['ready']) {
-                $address = $receiveAddress['address'];
-                $this->check_address($address);
-                $addressPool[] = $address;
+                $addressInner = $receiveAddress['address'];
+                $this->check_address($addressInner);
+                $addressPool[] = $addressInner;
             }
         }
         $addressPoolLength = count($addressPool);
@@ -1106,7 +1106,7 @@ class buda extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return; // fallback to default error handler
+            return null; // fallback to default error handler
         }
         if ($code >= 400) {
             $errorCode = $this->safe_string($response, 'code');
@@ -1117,5 +1117,6 @@ class buda extends Exchange {
                 throw new ExchangeError($feedback);
             }
         }
+        return null;
     }
 }

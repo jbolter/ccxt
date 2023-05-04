@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
+from ccxt.abstract.poloniexfutures import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import AccountSuspended
@@ -21,7 +23,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class poloniexfutures(Exchange):
+class poloniexfutures(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(poloniexfutures, self).describe(), {
@@ -747,7 +749,7 @@ class poloniexfutures(Exchange):
         #
         return self.parse_balance(response)
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         Create an order on the exchange
         see https://futures-docs.poloniex.com/#place-an-order
@@ -1641,7 +1643,7 @@ class poloniexfutures(Exchange):
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if not response:
             self.throw_broadly_matched_exception(self.exceptions['broad'], body, body)
-            return
+            return None
         #
         # bad
         #     {"code": "400100", "msg": "validation.createOrder.clientOidIsRequired"}
@@ -1654,3 +1656,4 @@ class poloniexfutures(Exchange):
         self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
         self.throw_exactly_matched_exception(self.exceptions['exact'], errorCode, feedback)
         self.throw_broadly_matched_exception(self.exceptions['broad'], body, feedback)
+        return None

@@ -4,8 +4,10 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
+from ccxt.abstract.okx import ImplicitAPI
 import asyncio
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -32,7 +34,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class okx(Exchange):
+class okx(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(okx, self).describe(), {
@@ -271,6 +273,7 @@ class okx(Exchange):
                         'trade/orders-algo-history': 1,
                         'trade/order-algo': 1,
                         'account/subaccount/balances': 10,
+                        'account/subaccount/interest-limits': 4,
                         'asset/subaccount/bills': 5 / 3,
                         'users/subaccount/list': 10,
                         'users/subaccount/apikey': 10,
@@ -331,6 +334,7 @@ class okx(Exchange):
                         'account/quick-margin-borrow-repay': 4,
                         'account/activate-option': 4,
                         'account/set-auto-loan': 4,
+                        'account/subaccount/set-loan-allocation': 4,
                         'asset/transfer': 10,
                         'asset/withdrawal': 5 / 3,
                         'asset/withdrawal-lightning': 5,
@@ -342,6 +346,7 @@ class okx(Exchange):
                         'trade/cancel-batch-orders': 1 / 15,
                         'trade/amend-order': 1 / 3,
                         'trade/amend-batch-orders': 1 / 3,
+                        'trade/amend-algos': 1,
                         'trade/close-position': 1,
                         'trade/order-algo': 1,
                         'trade/cancel-algos': 1,
@@ -1264,25 +1269,19 @@ class okx(Exchange):
             chains = dataByCurrencyId[currencyId]
             networks = {}
             currencyActive = False
-            depositEnabled = None
-            withdrawEnabled = None
+            depositEnabled = False
+            withdrawEnabled = False
             maxPrecision = None
             for j in range(0, len(chains)):
                 chain = chains[j]
                 canDeposit = self.safe_value(chain, 'canDep')
+                depositEnabled = canDeposit if (canDeposit) else depositEnabled
                 canWithdraw = self.safe_value(chain, 'canWd')
+                withdrawEnabled = canWithdraw if (canWithdraw) else withdrawEnabled
                 canInternal = self.safe_value(chain, 'canInternal')
                 active = True if (canDeposit and canWithdraw and canInternal) else False
                 currencyActive = active if (active) else currencyActive
                 networkId = self.safe_string(chain, 'chain')
-                if canDeposit and not depositEnabled:
-                    depositEnabled = True
-                elif not canDeposit:
-                    depositEnabled = False
-                if canWithdraw and not withdrawEnabled:
-                    withdrawEnabled = True
-                elif not canWithdraw:
-                    withdrawEnabled = False
                 if (networkId is not None) and (networkId.find('-') >= 0):
                     parts = networkId.split('-')
                     chainPart = self.safe_string(parts, 1, networkId)
@@ -2023,7 +2022,7 @@ class okx(Exchange):
         #
         return self.parse_balance_by_type(marketType, response)
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -2259,8 +2258,8 @@ class okx(Exchange):
         """
         stop = self.safe_value(params, 'stop')
         if stop:
-            order = await self.cancel_orders([id], symbol, params)
-            return self.safe_value(order, 0)
+            orderInner = await self.cancel_orders([id], symbol, params)
+            return self.safe_value(orderInner, 0)
         if symbol is None:
             raise ArgumentsRequired(self.id + ' cancelOrder() requires a symbol argument')
         await self.load_markets()
@@ -3667,10 +3666,10 @@ class okx(Exchange):
             'dest': '4',  # 2 = OKCoin International, 3 = OKX 4 = others
             'amt': self.number_to_string(amount),
         }
-        networks = self.safe_value(self.options, 'networks', {})
-        network = self.safe_string_upper(params, 'network')  # self line allows the user to specify either ERC20 or ETH
-        network = self.safe_string(networks, network, network)  # handle ETH>ERC20 alias
+        network = self.safe_string(params, 'network')  # self line allows the user to specify either ERC20 or ETH
         if network is not None:
+            networks = self.safe_value(self.options, 'networks', {})
+            network = self.safe_string(networks, network.upper(), network)  # handle ETH>ERC20 alias
             request['chain'] = currency['id'] + '-' + network
             params = self.omit(params, 'network')
         fee = self.safe_string(params, 'fee')
@@ -4729,12 +4728,12 @@ class okx(Exchange):
             entry = data[i]
             timestamp = self.safe_integer(entry, 'ts')
             instId = self.safe_string(entry, 'instId')
-            market = self.safe_market(instId)
+            marketInner = self.safe_market(instId)
             currencyId = self.safe_string(entry, 'ccy')
             code = self.safe_currency_code(currencyId)
             result.append({
                 'info': entry,
-                'symbol': market['symbol'],
+                'symbol': marketInner['symbol'],
                 'code': code,
                 'timestamp': timestamp,
                 'datetime': self.iso8601(timestamp),
@@ -5652,7 +5651,7 @@ class okx(Exchange):
 
     def handle_errors(self, httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if not response:
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         #
         #    {
         #        "code": "1",
@@ -5685,3 +5684,4 @@ class okx(Exchange):
                 self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
             self.throw_exactly_matched_exception(self.exceptions['exact'], code, feedback)
             raise ExchangeError(feedback)  # unknown message
+        return None

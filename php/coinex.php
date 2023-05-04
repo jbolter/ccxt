@@ -811,12 +811,12 @@ class coinex extends Exchange {
         $result = array();
         for ($i = 0; $i < count($marketIds); $i++) {
             $marketId = $marketIds[$i];
-            $market = $this->safe_market($marketId, null, null, $marketType);
-            $symbol = $market['symbol'];
+            $marketInner = $this->safe_market($marketId, null, null, $marketType);
+            $symbol = $marketInner['symbol'];
             $ticker = $this->parse_ticker(array(
                 'date' => $timestamp,
                 'ticker' => $tickers[$marketId],
-            ), $market);
+            ), $marketInner);
             $ticker['symbol'] = $symbol;
             $result[$symbol] = $ticker;
         }
@@ -1707,7 +1707,7 @@ class coinex extends Exchange {
         ), $market);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         /**
          * create a trade order
          * @param {string} $symbol unified $symbol of the $market to create an order in
@@ -1762,12 +1762,12 @@ class coinex extends Exchange {
                 }
             } else {
                 $method = 'perpetualPrivatePostOrderPut' . $this->capitalize($type);
-                $side = ($side === 'buy') ? 2 : 1;
+                $requestSide = ($side === 'buy') ? 2 : 1;
                 if ($stopPrice !== null) {
                     $request['stop_price'] = $this->price_to_precision($symbol, $stopPrice);
                     $request['stop_type'] = $this->safe_integer($params, 'stop_type', 1); // 1 => triggered by the latest transaction, 2 => mark $price, 3 => index $price;
                     $request['amount'] = $this->amount_to_precision($symbol, $amount);
-                    $request['side'] = $side;
+                    $request['side'] = $requestSide;
                     if ($type === 'limit') {
                         $method = 'perpetualPrivatePostOrderPutStopLimit';
                         $request['price'] = $this->price_to_precision($symbol, $price);
@@ -1796,7 +1796,7 @@ class coinex extends Exchange {
                         $method = 'perpetualPrivatePostOrderCloseLimit';
                         $request['position_id'] = $positionId;
                     } else {
-                        $request['side'] = $side;
+                        $request['side'] = $requestSide;
                     }
                     $request['price'] = $this->price_to_precision($symbol, $price);
                     $request['amount'] = $this->amount_to_precision($symbol, $amount);
@@ -1805,7 +1805,7 @@ class coinex extends Exchange {
                         $method = 'perpetualPrivatePostOrderCloseMarket';
                         $request['position_id'] = $positionId;
                     } else {
-                        $request['side'] = $side;
+                        $request['side'] = $requestSide;
                         $request['amount'] = $this->amount_to_precision($symbol, $amount);
                     }
                 }
@@ -3615,10 +3615,10 @@ class coinex extends Exchange {
         for ($i = 0; $i < count($marketIds); $i++) {
             $marketId = $marketIds[$i];
             if (mb_strpos($marketId, '_') === -1) { // skip _signprice and _indexprice
-                $market = $this->safe_market($marketId, null, null, 'swap');
+                $marketInner = $this->safe_market($marketId, null, null, 'swap');
                 $ticker = $tickers[$marketId];
                 $ticker['timestamp'] = $timestamp;
-                $result[] = $this->parse_funding_rate($ticker, $market);
+                $result[] = $this->parse_funding_rate($ticker, $marketInner);
             }
         }
         return $this->filter_by_array($result, 'symbol', $symbols);
@@ -3733,12 +3733,12 @@ class coinex extends Exchange {
         for ($i = 0; $i < count($result); $i++) {
             $entry = $result[$i];
             $marketId = $this->safe_string($entry, 'market');
-            $symbol = $this->safe_symbol($marketId);
+            $symbolInner = $this->safe_symbol($marketId, $market, null, 'swap');
             $timestamp = $this->safe_timestamp($entry, 'time');
             $rates[] = array(
                 'info' => $entry,
-                'symbol' => $symbol,
-                'fundingRate' => $this->safe_string($entry, 'funding_rate'),
+                'symbol' => $symbolInner,
+                'fundingRate' => $this->safe_number($entry, 'funding_rate'),
                 'timestamp' => $timestamp,
                 'datetime' => $this->iso8601($timestamp),
             );
@@ -4648,7 +4648,7 @@ class coinex extends Exchange {
 
     public function handle_errors($httpCode, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return;
+            return null;
         }
         $code = $this->safe_string($response, 'code');
         $data = $this->safe_value($response, 'data');
@@ -4672,5 +4672,6 @@ class coinex extends Exchange {
             $ErrorClass = $this->safe_value($responseCodes, $code, '\\ccxt\\ExchangeError');
             throw new $ErrorClass($response['message']);
         }
+        return null;
     }
 }

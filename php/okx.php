@@ -247,6 +247,7 @@ class okx extends Exchange {
                         'trade/orders-algo-history' => 1,
                         'trade/order-algo' => 1,
                         'account/subaccount/balances' => 10,
+                        'account/subaccount/interest-limits' => 4,
                         'asset/subaccount/bills' => 5 / 3,
                         'users/subaccount/list' => 10,
                         'users/subaccount/apikey' => 10,
@@ -307,6 +308,7 @@ class okx extends Exchange {
                         'account/quick-margin-borrow-repay' => 4,
                         'account/activate-option' => 4,
                         'account/set-auto-loan' => 4,
+                        'account/subaccount/set-loan-allocation' => 4,
                         'asset/transfer' => 10,
                         'asset/withdrawal' => 5 / 3,
                         'asset/withdrawal-lightning' => 5,
@@ -318,6 +320,7 @@ class okx extends Exchange {
                         'trade/cancel-batch-orders' => 1 / 15,
                         'trade/amend-order' => 1 / 3,
                         'trade/amend-batch-orders' => 1 / 3,
+                        'trade/amend-algos' => 1,
                         'trade/close-position' => 1,
                         'trade/order-algo' => 1,
                         'trade/cancel-algos' => 1,
@@ -1265,27 +1268,19 @@ class okx extends Exchange {
             $chains = $dataByCurrencyId[$currencyId];
             $networks = array();
             $currencyActive = false;
-            $depositEnabled = null;
-            $withdrawEnabled = null;
+            $depositEnabled = false;
+            $withdrawEnabled = false;
             $maxPrecision = null;
             for ($j = 0; $j < count($chains); $j++) {
                 $chain = $chains[$j];
                 $canDeposit = $this->safe_value($chain, 'canDep');
+                $depositEnabled = ($canDeposit) ? $canDeposit : $depositEnabled;
                 $canWithdraw = $this->safe_value($chain, 'canWd');
+                $withdrawEnabled = ($canWithdraw) ? $canWithdraw : $withdrawEnabled;
                 $canInternal = $this->safe_value($chain, 'canInternal');
                 $active = ($canDeposit && $canWithdraw && $canInternal) ? true : false;
                 $currencyActive = ($active) ? $active : $currencyActive;
                 $networkId = $this->safe_string($chain, 'chain');
-                if ($canDeposit && !$depositEnabled) {
-                    $depositEnabled = true;
-                } elseif (!$canDeposit) {
-                    $depositEnabled = false;
-                }
-                if ($canWithdraw && !$withdrawEnabled) {
-                    $withdrawEnabled = true;
-                } elseif (!$canWithdraw) {
-                    $withdrawEnabled = false;
-                }
                 if (($networkId !== null) && (mb_strpos($networkId, '-') !== false)) {
                     $parts = explode('-', $networkId);
                     $chainPart = $this->safe_string($parts, 1, $networkId);
@@ -2070,7 +2065,7 @@ class okx extends Exchange {
         return $this->parse_balance_by_type($marketType, $response);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         /**
          * create a trade $order
          * @param {string} $symbol unified $symbol of the $market to create an $order in
@@ -2333,8 +2328,8 @@ class okx extends Exchange {
          */
         $stop = $this->safe_value($params, 'stop');
         if ($stop) {
-            $order = $this->cancel_orders(array( $id ), $symbol, $params);
-            return $this->safe_value($order, 0);
+            $orderInner = $this->cancel_orders(array( $id ), $symbol, $params);
+            return $this->safe_value($orderInner, 0);
         }
         if ($symbol === null) {
             throw new ArgumentsRequired($this->id . ' cancelOrder() requires a $symbol argument');
@@ -3816,10 +3811,10 @@ class okx extends Exchange {
             'dest' => '4', // 2 = OKCoin International, 3 = OKX 4 = others
             'amt' => $this->number_to_string($amount),
         );
-        $networks = $this->safe_value($this->options, 'networks', array());
-        $network = $this->safe_string_upper($params, 'network'); // this line allows the user to specify either ERC20 or ETH
-        $network = $this->safe_string($networks, $network, $network); // handle ETH>ERC20 alias
+        $network = $this->safe_string($params, 'network'); // this line allows the user to specify either ERC20 or ETH
         if ($network !== null) {
+            $networks = $this->safe_value($this->options, 'networks', array());
+            $network = $this->safe_string($networks, strtoupper($network), $network); // handle ETH>ERC20 alias
             $request['chain'] = $currency['id'] . '-' . $network;
             $params = $this->omit($params, 'network');
         }
@@ -4940,12 +4935,12 @@ class okx extends Exchange {
             $entry = $data[$i];
             $timestamp = $this->safe_integer($entry, 'ts');
             $instId = $this->safe_string($entry, 'instId');
-            $market = $this->safe_market($instId);
+            $marketInner = $this->safe_market($instId);
             $currencyId = $this->safe_string($entry, 'ccy');
             $code = $this->safe_currency_code($currencyId);
             $result[] = array(
                 'info' => $entry,
-                'symbol' => $market['symbol'],
+                'symbol' => $marketInner['symbol'],
                 'code' => $code,
                 'timestamp' => $timestamp,
                 'datetime' => $this->iso8601($timestamp),
@@ -5933,7 +5928,7 @@ class okx extends Exchange {
 
     public function handle_errors($httpCode, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if (!$response) {
-            return; // fallback to default $error handler
+            return null; // fallback to default $error handler
         }
         //
         //    {
@@ -5969,5 +5964,6 @@ class okx extends Exchange {
             $this->throw_exactly_matched_exception($this->exceptions['exact'], $code, $feedback);
             throw new ExchangeError($feedback); // unknown $message
         }
+        return null;
     }
 }

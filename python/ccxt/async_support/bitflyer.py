@@ -4,7 +4,9 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
+from ccxt.abstract.bitflyer import ImplicitAPI
 import hashlib
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -13,7 +15,7 @@ from ccxt.base.errors import OrderNotFound
 from ccxt.base.decimal_to_precision import TICK_SIZE
 
 
-class bitflyer(Exchange):
+class bitflyer(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(bitflyer, self).describe(), {
@@ -418,9 +420,9 @@ class bitflyer(Exchange):
                 side = None
         order = None
         if side is not None:
-            id = side + '_child_order_acceptance_id'
-            if id in trade:
-                order = trade[id]
+            idInner = side + '_child_order_acceptance_id'
+            if idInner in trade:
+                order = trade[idInner]
         if order is None:
             order = self.safe_string(trade, 'child_order_acceptance_id')
         timestamp = self.parse8601(self.safe_string(trade, 'exec_date'))
@@ -489,7 +491,7 @@ class bitflyer(Exchange):
             'taker': fee,
         }
 
-    async def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    async def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in

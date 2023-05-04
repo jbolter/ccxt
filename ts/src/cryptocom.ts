@@ -6,7 +6,7 @@ import { AuthenticationError, ArgumentsRequired, ExchangeError, InsufficientFund
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 export default class cryptocom extends Exchange {
     describe () {
@@ -1150,7 +1150,7 @@ export default class cryptocom extends Exchange {
         return this.parseOrder (order, market);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name cryptocom#createOrder
@@ -2568,7 +2568,8 @@ export default class cryptocom extends Exchange {
     }
 
     sign (path, api = 'public', method = 'GET', params = {}, headers = undefined, body = undefined) {
-        const [ type, access ] = api;
+        const type = this.safeString (api, 0);
+        const access = this.safeString (api, 1);
         let url = this.urls['api'][type] + '/' + path;
         const query = this.omit (params, this.extractParams (path));
         if (access === 'public') {
@@ -2620,5 +2621,6 @@ export default class cryptocom extends Exchange {
             this.throwExactlyMatchedException (this.exceptions['exact'], errorCode, feedback);
             throw new ExchangeError (this.id + ' ' + body);
         }
+        return undefined;
     }
 }

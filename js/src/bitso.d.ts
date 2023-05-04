@@ -1,5 +1,5 @@
 import Exchange from './abstract/bitso.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class bitso extends Exchange {
     describe(): any;
     fetchLedger(code?: string, since?: Int, limit?: Int, params?: {}): Promise<any>;
@@ -28,12 +28,12 @@ export default class bitso extends Exchange {
     parseTicker(ticker: any, market?: any): import("./base/types.js").Ticker;
     fetchTicker(symbol: string, params?: {}): Promise<import("./base/types.js").Ticker>;
     fetchOHLCV(symbol: string, timeframe?: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").OHLCV[]>;
-    parseOHLCV(ohlcv: any, market?: any, timeframe?: string): number[];
+    parseOHLCV(ohlcv: any, market?: any): number[];
     parseTrade(trade: any, market?: any): import("./base/types.js").Trade;
     fetchTrades(symbol: string, since?: Int, limit?: Int, params?: {}): Promise<import("./base/types.js").Trade[]>;
     fetchTradingFees(params?: {}): Promise<{}>;
     fetchMyTrades(symbol?: string, since?: Int, limit?: number, params?: {}): Promise<import("./base/types.js").Trade[]>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelOrders(ids: any, symbol?: string, params?: {}): Promise<any[]>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<any[]>;
@@ -124,5 +124,5 @@ export default class bitso extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

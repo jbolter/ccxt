@@ -1797,7 +1797,7 @@ class bitmex extends Exchange {
         }) ();
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -2754,7 +2754,7 @@ class bitmex extends Exchange {
         }) ();
     }
 
-    public function calculate_rate_limiter_cost($api, $method, $path, $params, $config = array (), $context = array ()) {
+    public function calculate_rate_limiter_cost($api, $method, $path, $params, $config = array ()) {
         $isAuthenticated = $this->check_required_credentials(false);
         $cost = $this->safe_value($config, 'cost', 1);
         if ($cost !== 1) { // trading endpoints
@@ -2769,7 +2769,7 @@ class bitmex extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return;
+            return null;
         }
         if ($code === 429) {
             throw new DDoSProtection($this->id . ' ' . $body);
@@ -2785,6 +2785,7 @@ class bitmex extends Exchange {
             }
             throw new ExchangeError($feedback); // unknown $message
         }
+        return null;
     }
 
     public function nonce() {

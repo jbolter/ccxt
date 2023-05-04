@@ -494,7 +494,7 @@ class coinone extends Exchange {
         }) ();
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -898,7 +898,7 @@ class coinone extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return;
+            return null;
         }
         if (is_array($response) && array_key_exists('result', $response)) {
             $result = $response['result'];
@@ -914,5 +914,6 @@ class coinone extends Exchange {
         } else {
             throw new ExchangeError($this->id . ' ' . $body);
         }
+        return null;
     }
 }

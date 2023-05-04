@@ -1,5 +1,5 @@
 import Exchange from './abstract/bitvavo.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class bitvavo extends Exchange {
     describe(): any;
     currencyToPrecision(code: any, fee: any, networkCode?: any): any;
@@ -27,7 +27,7 @@ export default class bitvavo extends Exchange {
         network: any;
         info: any;
     }>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     editOrder(id: string, symbol: any, type: any, side: any, amount?: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<import("./base/types.js").Order[]>;
@@ -84,6 +84,6 @@ export default class bitvavo extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
-    calculateRateLimiterCost(api: any, method: any, path: any, params: any, config?: {}, context?: {}): any;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
+    calculateRateLimiterCost(api: any, method: any, path: any, params: any, config?: {}): any;
 }

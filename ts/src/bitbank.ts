@@ -5,7 +5,7 @@ import Exchange from './abstract/bitbank.js';
 import { ExchangeError, AuthenticationError, InvalidNonce, InsufficientFunds, InvalidOrder, OrderNotFound, PermissionDenied } from './base/errors.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -617,7 +617,7 @@ export default class bitbank extends Exchange {
         }, market);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name bitbank#createOrder
@@ -900,7 +900,7 @@ export default class bitbank extends Exchange {
 
     handleErrors (httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return;
+            return undefined;
         }
         const success = this.safeInteger (response, 'success');
         const data = this.safeValue (response, 'data');
@@ -972,10 +972,11 @@ export default class bitbank extends Exchange {
             const message = this.safeString (errorMessages, code, 'Error');
             const ErrorClass = this.safeValue (errorClasses, code);
             if (ErrorClass !== undefined) {
-                throw new ErrorClass (message);
+                throw new errorClasses[code] (message);
             } else {
                 throw new ExchangeError (this.id + ' ' + this.json (response));
             }
         }
+        return undefined;
     }
 }

@@ -734,7 +734,7 @@ class btcalpha extends Exchange {
         ), $market);
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade $order
@@ -919,7 +919,7 @@ class btcalpha extends Exchange {
 
     public function handle_errors($code, $reason, $url, $method, $headers, $body, $response, $requestHeaders, $requestBody) {
         if ($response === null) {
-            return; // fallback to default $error handler
+            return null; // fallback to default $error handler
         }
         //
         //     array("date":1570599531.4814300537,"error":"Out of balance -9.99243661 BTC")
@@ -936,7 +936,7 @@ class btcalpha extends Exchange {
             throw new DDoSProtection($feedback);
         }
         if ($code < 400) {
-            return;
+            return null;
         }
         throw new ExchangeError($feedback);
     }

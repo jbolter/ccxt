@@ -394,7 +394,7 @@ class gate extends \ccxt\async\gate {
             if ($this->newUpdates) {
                 $limit = $trades->getLimit ($symbol, $limit);
             }
-            return $this->filter_by_since_limit($trades, $since, $limit, 'timestamp', true);
+            return $this->filter_by_since_limit($trades, $since, $limit, 'timestamp');
         }) ();
     }
 
@@ -460,7 +460,7 @@ class gate extends \ccxt\async\gate {
             if ($this->newUpdates) {
                 $limit = $ohlcv->getLimit ($symbol, $limit);
             }
-            return $this->filter_by_since_limit($ohlcv, $since, $limit, 0, true);
+            return $this->filter_by_since_limit($ohlcv, $since, $limit, 0);
         }) ();
     }
 
@@ -561,7 +561,7 @@ class gate extends \ccxt\async\gate {
             if ($this->newUpdates) {
                 $limit = $trades->getLimit ($symbol, $limit);
             }
-            return $this->filter_by_symbol_since_limit($trades, $symbol, $since, $limit, true);
+            return $this->filter_by_symbol_since_limit($trades, $symbol, $since, $limit);
         }) ();
     }
 
@@ -775,7 +775,7 @@ class gate extends \ccxt\async\gate {
             if ($this->newUpdates) {
                 $limit = $orders->getLimit ($symbol, $limit);
             }
-            return $this->filter_by_since_limit($orders, $since, $limit, 'timestamp', true);
+            return $this->filter_by_since_limit($orders, $since, $limit, 'timestamp');
         }) ();
     }
 
@@ -905,7 +905,9 @@ class gate extends \ccxt\async\gate {
             $method = $methods[$channel];
             $method($client, $message, $subscription);
         }
-        unset($client->subscriptions[$id]);
+        if (is_array($client->subscriptions) && array_key_exists($id, $client->subscriptions)) {
+            unset($client->subscriptions[$id]);
+        }
     }
 
     public function handle_message(Client $client, $message) {

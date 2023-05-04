@@ -21,7 +21,7 @@ class bitrue extends \ccxt\async\bitrue {
                 'watchTrades' => false,
                 'watchMyTrades' => false,
                 'watchOrders' => true,
-                'watchOrderBook' => false,
+                'watchOrderBook' => true,
                 'watchOHLCV' => false,
             ),
             'urls' => array(
@@ -201,7 +201,7 @@ class bitrue extends \ccxt\async\bitrue {
             if ($this->newUpdates) {
                 $limit = $orders->getLimit ($symbol, $limit);
             }
-            return $this->filter_by_symbol_since_limit($orders, $symbol, $since, $limit, true);
+            return $this->filter_by_symbol_since_limit($orders, $symbol, $since, $limit);
         }) ();
     }
 

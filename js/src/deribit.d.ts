@@ -1,5 +1,5 @@
 import Exchange from './abstract/deribit.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 export default class deribit extends Exchange {
     describe(): any;
     fetchTime(params?: {}): Promise<number>;
@@ -47,7 +47,7 @@ export default class deribit extends Exchange {
     parseOrderType(orderType: any): string;
     parseOrder(order: any, market?: any): any;
     fetchOrder(id: string, symbol?: string, params?: {}): Promise<any>;
-    createOrder(symbol: string, type: any, side: any, amount: any, price?: any, params?: {}): Promise<any>;
+    createOrder(symbol: string, type: any, side: OrderSide, amount: any, price?: any, params?: {}): Promise<any>;
     editOrder(id: string, symbol: any, type: any, side: any, amount?: any, price?: any, params?: {}): Promise<any>;
     cancelOrder(id: string, symbol?: string, params?: {}): Promise<any>;
     cancelAllOrders(symbol?: string, params?: {}): Promise<any>;
@@ -131,5 +131,5 @@ export default class deribit extends Exchange {
         body: any;
         headers: any;
     };
-    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): void;
+    handleErrors(httpCode: any, reason: any, url: any, method: any, headers: any, body: any, response: any, requestHeaders: any, requestBody: any): any;
 }

@@ -4,6 +4,8 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.blockchaincom import ImplicitAPI
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -15,7 +17,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class blockchaincom(Exchange):
+class blockchaincom(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(blockchaincom, self).describe(), {
@@ -473,7 +475,7 @@ class blockchaincom(Exchange):
         })
         return result
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -1054,7 +1056,7 @@ class blockchaincom(Exchange):
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         # {"timestamp":"2021-10-21T15:13:58.837+00:00","status":404,"error":"Not Found","message":"","path":"/orders/505050"
         if response is None:
-            return
+            return None
         text = self.safe_string(response, 'text')
         if text is not None:  # if trade currency account is empty returns 200 with rejected order
             if text == 'Insufficient Balance':
@@ -1065,3 +1067,4 @@ class blockchaincom(Exchange):
             feedback = self.id + ' ' + self.json(response)
             self.throw_exactly_matched_exception(self.exceptions['exact'], errorCode, feedback)
             self.throw_broadly_matched_exception(self.exceptions['broad'], errorMessage, feedback)
+        return None

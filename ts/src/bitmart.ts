@@ -6,7 +6,7 @@ import { AuthenticationError, ExchangeNotAvailable, AccountSuspended, Permission
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE, TRUNCATE } from './base/functions/number.js';
 import { sha256 } from './static_dependencies/noble-hashes/sha256.js';
-import { Int } from './base/types.js';
+import { Int, OrderSide } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -1816,7 +1816,7 @@ export default class bitmart extends Exchange {
         return this.safeString (statuses, status, status);
     }
 
-    async createOrder (symbol: string, type, side, amount, price = undefined, params = {}) {
+    async createOrder (symbol: string, type, side: OrderSide, amount, price = undefined, params = {}) {
         /**
          * @method
          * @name bitmart#createOrder
@@ -2184,10 +2184,10 @@ export default class bitmart extends Exchange {
             const defaultNetworks = this.safeValue (this.options, 'defaultNetworks');
             const defaultNetwork = this.safeStringUpper (defaultNetworks, code);
             const networks = this.safeValue (this.options, 'networks', {});
-            let network = this.safeStringUpper (params, 'network', defaultNetwork); // this line allows the user to specify either ERC20 or ETH
-            network = this.safeString (networks, network, network); // handle ERC20>ETH alias
-            if (network !== undefined) {
-                request['currency'] += '-' + network; // when network the currency need to be changed to currency + '-' + network https://developer-pro.bitmart.com/en/account/withdraw_apply.html on the end of page
+            let networkInner = this.safeStringUpper (params, 'network', defaultNetwork); // this line allows the user to specify either ERC20 or ETH
+            networkInner = this.safeString (networks, networkInner, networkInner); // handle ERC20>ETH alias
+            if (networkInner !== undefined) {
+                request['currency'] = request['currency'] + '-' + networkInner; // when network the currency need to be changed to currency + '-' + network https://developer-pro.bitmart.com/en/account/withdraw_apply.html on the end of page
                 params = this.omit (params, 'network');
             }
         }
@@ -2262,7 +2262,7 @@ export default class bitmart extends Exchange {
             let network = this.safeStringUpper (params, 'network', defaultNetwork); // this line allows the user to specify either ERC20 or ETH
             network = this.safeString (networks, network, network); // handle ERC20>ETH alias
             if (network !== undefined) {
-                request['currency'] += '-' + network; // when network the currency need to be changed to currency + '-' + network https://developer-pro.bitmart.com/en/account/withdraw_apply.html on the end of page
+                request['currency'] = request['currency'] + '-' + network; // when network the currency need to be changed to currency + '-' + network https://developer-pro.bitmart.com/en/account/withdraw_apply.html on the end of page
                 params = this.omit (params, 'network');
             }
         }
@@ -3063,7 +3063,7 @@ export default class bitmart extends Exchange {
 
     handleErrors (code, reason, url, method, headers, body, response, requestHeaders, requestBody) {
         if (response === undefined) {
-            return;
+            return undefined;
         }
         //
         // spot
@@ -3087,5 +3087,6 @@ export default class bitmart extends Exchange {
             this.throwBroadlyMatchedException (this.exceptions['broad'], message, feedback);
             throw new ExchangeError (feedback); // unknown message
         }
+        return undefined;
     }
 }

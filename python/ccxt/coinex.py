@@ -4,6 +4,8 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
+from ccxt.abstract.coinex import ImplicitAPI
+from ccxt.base.types import OrderSide
 from typing import Optional
 from typing import List
 from ccxt.base.errors import ExchangeError
@@ -23,7 +25,7 @@ from ccxt.base.decimal_to_precision import TICK_SIZE
 from ccxt.base.precise import Precise
 
 
-class coinex(Exchange):
+class coinex(Exchange, ImplicitAPI):
 
     def describe(self):
         return self.deep_extend(super(coinex, self).describe(), {
@@ -813,12 +815,12 @@ class coinex(Exchange):
         result = {}
         for i in range(0, len(marketIds)):
             marketId = marketIds[i]
-            market = self.safe_market(marketId, None, None, marketType)
-            symbol = market['symbol']
+            marketInner = self.safe_market(marketId, None, None, marketType)
+            symbol = marketInner['symbol']
             ticker = self.parse_ticker({
                 'date': timestamp,
                 'ticker': tickers[marketId],
-            }, market)
+            }, marketInner)
             ticker['symbol'] = symbol
             result[symbol] = ticker
         return self.filter_by_array(result, 'symbol', symbols)
@@ -1673,7 +1675,7 @@ class coinex(Exchange):
             'info': order,
         }, market)
 
-    def create_order(self, symbol: str, type, side, amount, price=None, params={}):
+    def create_order(self, symbol: str, type, side: OrderSide, amount, price=None, params={}):
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -1724,12 +1726,12 @@ class coinex(Exchange):
                     request['take_profit_price'] = self.price_to_precision(symbol, takeProfitPrice)
             else:
                 method = 'perpetualPrivatePostOrderPut' + self.capitalize(type)
-                side = 2 if (side == 'buy') else 1
+                requestSide = 2 if (side == 'buy') else 1
                 if stopPrice is not None:
                     request['stop_price'] = self.price_to_precision(symbol, stopPrice)
                     request['stop_type'] = self.safe_integer(params, 'stop_type', 1)  # 1: triggered by the latest transaction, 2: mark price, 3: index price
                     request['amount'] = self.amount_to_precision(symbol, amount)
-                    request['side'] = side
+                    request['side'] = requestSide
                     if type == 'limit':
                         method = 'perpetualPrivatePostOrderPutStopLimit'
                         request['price'] = self.price_to_precision(symbol, price)
@@ -1753,7 +1755,7 @@ class coinex(Exchange):
                         method = 'perpetualPrivatePostOrderCloseLimit'
                         request['position_id'] = positionId
                     else:
-                        request['side'] = side
+                        request['side'] = requestSide
                     request['price'] = self.price_to_precision(symbol, price)
                     request['amount'] = self.amount_to_precision(symbol, amount)
                 elif type == 'market' and stopPrice is None:
@@ -1761,7 +1763,7 @@ class coinex(Exchange):
                         method = 'perpetualPrivatePostOrderCloseMarket'
                         request['position_id'] = positionId
                     else:
-                        request['side'] = side
+                        request['side'] = requestSide
                         request['amount'] = self.amount_to_precision(symbol, amount)
         else:
             method = 'privatePostOrder' + self.capitalize(type)
@@ -3462,10 +3464,10 @@ class coinex(Exchange):
         for i in range(0, len(marketIds)):
             marketId = marketIds[i]
             if marketId.find('_') == -1:  # skip _signprice and _indexprice
-                market = self.safe_market(marketId, None, None, 'swap')
+                marketInner = self.safe_market(marketId, None, None, 'swap')
                 ticker = tickers[marketId]
                 ticker['timestamp'] = timestamp
-                result.append(self.parse_funding_rate(ticker, market))
+                result.append(self.parse_funding_rate(ticker, marketInner))
         return self.filter_by_array(result, 'symbol', symbols)
 
     def withdraw(self, code: str, amount, address, tag=None, params={}):
@@ -3572,12 +3574,12 @@ class coinex(Exchange):
         for i in range(0, len(result)):
             entry = result[i]
             marketId = self.safe_string(entry, 'market')
-            symbol = self.safe_symbol(marketId)
+            symbolInner = self.safe_symbol(marketId, market, None, 'swap')
             timestamp = self.safe_timestamp(entry, 'time')
             rates.append({
                 'info': entry,
-                'symbol': symbol,
-                'fundingRate': self.safe_string(entry, 'funding_rate'),
+                'symbol': symbolInner,
+                'fundingRate': self.safe_number(entry, 'funding_rate'),
                 'timestamp': timestamp,
                 'datetime': self.iso8601(timestamp),
             })
@@ -4431,7 +4433,7 @@ class coinex(Exchange):
 
     def handle_errors(self, httpCode, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
-            return
+            return None
         code = self.safe_string(response, 'code')
         data = self.safe_value(response, 'data')
         message = self.safe_string(response, 'message')
@@ -4453,3 +4455,4 @@ class coinex(Exchange):
             }
             ErrorClass = self.safe_value(responseCodes, code, ExchangeError)
             raise ErrorClass(response['message'])
+        return None

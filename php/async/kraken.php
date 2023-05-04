@@ -596,6 +596,7 @@ class kraken extends Exchange {
                             'max' => null,
                         ),
                     ),
+                    'networks' => array(),
                 );
             }
             return $result;
@@ -1254,7 +1255,7 @@ class kraken extends Exchange {
         }) ();
     }
 
-    public function create_order(string $symbol, $type, $side, $amount, $price = null, $params = array ()) {
+    public function create_order(string $symbol, $type, string $side, $amount, $price = null, $params = array ()) {
         return Async\async(function () use ($symbol, $type, $side, $amount, $price, $params) {
             /**
              * create a trade order
@@ -2527,7 +2528,7 @@ class kraken extends Exchange {
             throw new RateLimitExceeded($this->id . ' ' . $body);
         }
         if ($response === null) {
-            return;
+            return null;
         }
         if ($body[0] === '{') {
             if (gettype($response) !== 'string') {
@@ -2544,5 +2545,6 @@ class kraken extends Exchange {
                 }
             }
         }
+        return null;
     }
 }

@@ -27,6 +27,7 @@ export default class bingx extends Exchange {
                 'swap': true,
                 'future': false,
                 'option': false,
+                'fetchBalance': true,
                 'fetchFundingRate': true,
                 'fetchFundingRateHistory': true,
                 'fetchMarkets': true,
@@ -36,7 +37,6 @@ export default class bingx extends Exchange {
                 'fetchTicker': true,
                 'fetchTickers': true,
                 'fetchTrades': true,
-                'fetchBalance': true,
             },
             'hostname': 'bingx.com',
             'urls': {
